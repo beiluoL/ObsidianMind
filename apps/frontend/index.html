@@ -3,8 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
     <title>ObsidianMind</title>
+    <!--
+      主题防闪烁（FOUC）：在任何样式 / 脚本执行前确定 data-theme。
+      与 src/stores/theme.ts 共用 localStorage key「obsidianmind-theme」。
+      默认 system —— 跟随操作系统外观；用户显式选择后以选择为准。
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('obsidianmind-theme');
+          var mode = raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
+          var theme =
+            mode === 'system'
+              ? window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : mode;
+          var root = document.documentElement;
+          root.setAttribute('data-theme', theme);
+          root.style.colorScheme = theme;
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

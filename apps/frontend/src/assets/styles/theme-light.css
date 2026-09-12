@@ -1,0 +1,83 @@
+/* ============================================================
+ * Light Theme —— 完整浅色层级（不是把黑色换成白色）
+ * ------------------------------------------------------------
+ * 背景 / 卡片 / 二级面 / 描边 / 三级文字重新拉开层级；
+ * 品牌紫在浅色下加深到 #5f4bdd，保证正文与白底对比度 ≥ 4.5:1。
+ * ============================================================ */
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Background & Surface */
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f3f3f5;
+  --surface-hover: #ececef;
+  --surface-active: #e4e4e8;
+  --surface-elevated: #ffffff;
+
+  /* Border */
+  --border: #e5e5e9;
+  --border-strong: #d3d3da;
+
+  /* Text */
+  --text-1: #18181b;
+  --text-2: #55555f;
+  --text-3: #6b6b75;
+
+  /* Brand —— 同色系加深，浅色下不发飘 */
+  --primary: #5f4bdd;
+  --primary-hover: #5540cc;
+  --primary-muted: rgba(95, 75, 221, 0.1);
+  --primary-border: rgba(95, 75, 221, 0.32);
+  --primary-strong-bg: rgba(95, 75, 221, 0.16);
+  --primary-solid: #5f4bdd;
+  --primary-solid-hover: #5540cc;
+  --on-primary: #ffffff;
+  --brand-icon: #5f4bdd;
+  --brand-gradient: linear-gradient(135deg, rgba(95, 75, 221, 0.14), rgba(29, 78, 216, 0.08));
+
+  /* Status —— 降饱和 + 加深，保证浅底可读 */
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --info: #1d4ed8;
+
+  --success-soft: rgba(21, 128, 61, 0.08);
+  --success-border: rgba(21, 128, 61, 0.22);
+  --success-glow: rgba(21, 128, 61, 0.28);
+  --warning-soft: rgba(180, 83, 9, 0.07);
+  --warning-border: rgba(180, 83, 9, 0.24);
+  --warning-border-strong: rgba(180, 83, 9, 0.34);
+  --danger-soft: rgba(220, 38, 38, 0.07);
+  --danger-border: rgba(220, 38, 38, 0.28);
+
+  /* Category（图谱节点） */
+  --cat-java: #d97706;
+  --cat-ai: #6d4ee0;
+  --cat-project: #0891b2;
+  --cat-media: #db2777;
+  --cat-root: #71717a;
+
+  /* Code */
+  --code-text: #6d28d9;
+
+  /* Overlay / 遮罩：浅色下更轻，不压死背景 */
+  --overlay: rgba(15, 23, 42, 0.28);
+  --overlay-blur: 3px;
+
+  --glass-1: rgba(255, 255, 255, 0.9);
+  --glass-2: rgba(255, 255, 255, 0.97);
+  --graph-glow: #ffffff;
+
+  --knob: #ffffff;
+
+  /* Focus */
+  --focus-ring: rgba(95, 75, 221, 0.45);
+
+  /* Shadow —— 浅色靠阴影分层，不用重描边 */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.16);
+  --shadow-panel: 0 8px 32px rgba(15, 23, 42, 0.1);
+  --shadow-pop: 0 16px 48px rgba(15, 23, 42, 0.16);
+}

@@ -1,46 +1,16 @@
 /* ============================================================
- * ObsidianMind Design Tokens —— 全站唯一色彩 / 字体 / 间距来源
- * 禁止在组件中直接写 hex，一律引用变量
+ * ObsidianMind Design Tokens —— 与主题无关的「骨架」变量
+ * ------------------------------------------------------------
+ * 本文件只放：字体 / 字号 / 间距 / 圆角 / 布局尺寸 / 动效 / 层级。
+ * 所有颜色一律定义在 theme-dark.css / theme-light.css，
+ * 由 <html data-theme="dark|light"> 切换。
+ *
+ * 约定：组件样式禁止出现 hex / rgba 字面量，必须引用 Token。
  * ============================================================ */
 :root {
-  /* Background & Surface */
-  --bg: #101014;
-  --surface: #16161c;
-  --surface-2: #1c1c24;
-  --surface-hover: #23232d;
-  --surface-active: #2a2a36;
-
-  /* Border */
-  --border: #26262f;
-  --border-strong: #34343f;
-
-  /* Text */
-  --text-1: #ececf1;
-  --text-2: #a3a3b2;
-  --text-3: #6e6e80;
-
-  /* Brand (ObsidianMind 紫) */
-  --primary: #8b7cf6;
-  --primary-hover: #9c8ff8;
-  --primary-muted: rgba(139, 124, 246, 0.14);
-  --primary-border: rgba(139, 124, 246, 0.4);
-
-  /* Status */
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --info: #60a5fa;
-
-  /* Category (图谱节点) */
-  --cat-java: #f59e0b;
-  --cat-ai: #8b7cf6;
-  --cat-project: #22d3ee;
-  --cat-media: #f472b6;
-  --cat-root: #a3a3b2;
-
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --fs-xs: 11px;
   --fs-sm: 12.5px;
@@ -57,6 +27,7 @@
   --sp-4: 16px;
   --sp-5: 20px;
   --sp-6: 24px;
+  --sp-7: 28px;
   --sp-8: 32px;
   --sp-10: 40px;
 
@@ -64,6 +35,7 @@
   --r-sm: 5px;
   --r-md: 8px;
   --r-lg: 12px;
+  --r-xl: 16px;
   --r-full: 999px;
 
   /* Layout */
@@ -71,13 +43,16 @@
   --statusbar-h: 30px;
   --sidebar-w: 264px;
   --ai-panel-w: 380px;
+  --modal-w: 552px;
 
   /* Motion */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 0.12s;
   --dur: 0.2s;
+  --dur-modal: 0.18s;
 
-  /* Shadow */
-  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.55);
+  /* Z-index */
+  --z-popover: 100;
+  --z-modal: 200;
 }

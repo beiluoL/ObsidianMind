@@ -222,14 +222,14 @@ onMounted(() => {
   padding: 0 var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 550;
-  color: #fff;
-  background: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary-solid);
   border-radius: var(--r-md);
   transition: all var(--dur-fast) var(--ease);
 }
 
 .search__go:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: var(--primary-solid-hover);
 }
 
 .search__go:disabled {
@@ -337,7 +337,7 @@ onMounted(() => {
 }
 
 .result__excerpt :deep(mark) {
-  background: rgba(139, 124, 246, 0.25);
+  background: var(--primary-strong-bg);
   color: var(--primary);
   border-radius: 3px;
   padding: 0 1px;
@@ -364,7 +364,7 @@ onMounted(() => {
 }
 
 .result__excerpt :deep(mark) {
-  background: rgba(139, 124, 246, 0.25);
+  background: var(--primary-strong-bg);
   color: var(--primary);
   border-radius: 3px;
   padding: 0 1px;

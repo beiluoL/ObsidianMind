@@ -6,6 +6,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Search, Settings, Gem, ChevronDown } from 'lucide-vue-next';
 import { useChatStore } from '@/stores/chat';
+import ThemeQuickToggle from '@/components/theme/ThemeQuickToggle.vue';
 
 const router = useRouter();
 const chat = useChatStore();
@@ -55,9 +56,10 @@ function onSearchEnter(event: KeyboardEvent): void {
         本地运行
         <ChevronDown :size="13" class="header__local-chevron" :class="{ open: showLocalPopover }" />
       </button>
-      <button class="header__icon-btn" title="设置" @click="router.push({ name: 'settings' })">
+      <button class="header__icon-btn" title="设置" aria-label="设置" @click="router.push({ name: 'settings' })">
         <Settings :size="16" :stroke-width="1.7" />
       </button>
+      <ThemeQuickToggle />
     </div>
 
     <Transition name="pop">
@@ -106,8 +108,8 @@ function onSearchEnter(event: KeyboardEvent): void {
   width: 26px;
   height: 26px;
   border-radius: var(--r-md);
-  color: #c4b5fd;
-  background: linear-gradient(135deg, rgba(139, 124, 246, 0.22), rgba(96, 165, 250, 0.12));
+  color: var(--brand-icon);
+  background: var(--brand-gradient);
   border: 1px solid var(--primary-border);
 }
 
@@ -193,7 +195,7 @@ function onSearchEnter(event: KeyboardEvent): void {
   height: 7px;
   border-radius: var(--r-full);
   background: var(--success);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 6px var(--success-glow);
 }
 
 .header__local-chevron {

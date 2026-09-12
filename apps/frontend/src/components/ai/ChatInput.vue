@@ -146,13 +146,13 @@ function onKeydown(event: KeyboardEvent): void {
   width: 28px;
   height: 28px;
   border-radius: var(--r-md);
-  background: var(--primary);
-  color: #fff;
+  background: var(--primary-solid);
+  color: var(--on-primary);
   transition: all var(--dur-fast) var(--ease);
 }
 
 .chat-input__send:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: var(--primary-solid-hover);
 }
 
 .chat-input__send:active:not(:disabled) {

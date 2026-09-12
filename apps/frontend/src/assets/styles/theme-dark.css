@@ -1,0 +1,89 @@
+/* ============================================================
+ * Dark Theme —— ObsidianMind 默认配色
+ * ------------------------------------------------------------
+ * 保持改造前的深色观感不变，仅补充语义 Token。
+ * :root 上直接生效（不依赖 data-theme），保证无 JS / 首屏未解析时也有色。
+ * ============================================================ */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Background & Surface */
+  --bg: #101014;
+  --surface: #16161c;
+  --surface-2: #1c1c24;
+  --surface-hover: #23232d;
+  --surface-active: #2a2a36;
+  --surface-elevated: #1f1f28;
+
+  /* Border */
+  --border: #26262f;
+  --border-strong: #34343f;
+
+  /* Text */
+  --text-1: #ececf1;
+  --text-2: #a3a3b2;
+  --text-3: #6e6e80;
+
+  /* Brand —— ObsidianMind 紫 */
+  --primary: #8b7cf6;
+  --primary-hover: #9c8ff8;
+  --primary-muted: rgba(139, 124, 246, 0.14);
+  --primary-border: rgba(139, 124, 246, 0.4);
+  --primary-strong-bg: rgba(139, 124, 246, 0.25);
+  /* 实心按钮底色：比 accent 略深，保证白字对比度 ≥ 4.5:1 */
+  --primary-solid: #6d5af0;
+  --primary-solid-hover: #7d6bf7;
+  /* 品牌色之上的前景色（Primary Button 文字） */
+  --on-primary: #ffffff;
+  --brand-icon: #c4b5fd;
+  --brand-gradient: linear-gradient(135deg, rgba(139, 124, 246, 0.22), rgba(96, 165, 250, 0.12));
+
+  /* Status */
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+
+  /* Status —— 弱底 / 描边 / 光晕（替代组件里的 rgba 字面量） */
+  --success-soft: rgba(74, 222, 128, 0.08);
+  --success-border: rgba(74, 222, 128, 0.18);
+  --success-glow: rgba(74, 222, 128, 0.5);
+  --warning-soft: rgba(250, 179, 135, 0.08);
+  --warning-border: rgba(250, 179, 135, 0.3);
+  --warning-border-strong: rgba(250, 179, 135, 0.4);
+  --danger-soft: rgba(248, 113, 113, 0.08);
+  --danger-border: rgba(248, 113, 113, 0.3);
+
+  /* Category（图谱节点） */
+  --cat-java: #f59e0b;
+  --cat-ai: #8b7cf6;
+  --cat-project: #22d3ee;
+  --cat-media: #f472b6;
+  --cat-root: #a3a3b2;
+
+  /* Code */
+  --code-text: #c4b5fd;
+
+  /* Overlay / 遮罩 */
+  --overlay: rgba(9, 9, 15, 0.68);
+  --overlay-blur: 6px;
+
+  /* 半透明浮层（图谱工具条等） */
+  --glass-1: rgba(22, 22, 28, 0.85);
+  --glass-2: rgba(28, 28, 36, 0.95);
+  --graph-glow: #14141b;
+
+  /* 控件中性前景（Toggle 滑块等） */
+  --knob: #ffffff;
+
+  /* Focus */
+  --focus-ring: rgba(139, 124, 246, 0.6);
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.55);
+}

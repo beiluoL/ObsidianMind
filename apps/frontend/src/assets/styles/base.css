@@ -19,6 +19,8 @@ body {
   color: var(--text-1);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  /* 主题切换时的平滑过渡（首屏由 data-theme 预先确定，不会闪烁） */
+  transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
 
 button {
@@ -49,6 +51,30 @@ a {
 ::selection {
   background: var(--primary-muted);
   color: var(--text-1);
+}
+
+/* ---------- 键盘焦点环：全站统一，深浅色自适应 ---------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* ---------- 无障碍：仅屏幕阅读器可见 ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 滚动条 —— 克制细窄 */
@@ -125,7 +151,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   padding: 1px 5px;
-  color: #c4b5fd;
+  color: var(--code-text);
 }
 .md-body pre {
   background: var(--surface-2);

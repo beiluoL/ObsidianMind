@@ -18,6 +18,7 @@ import {
 import type { AppSettings } from '@/types/knowledge';
 import { settingsService } from '@/services/settingsService';
 import { useVaultStore } from '@/stores/vault';
+import ThemeSwitcher from '@/components/theme/ThemeSwitcher.vue';
 
 const active = ref('knowledge');
 const settings = ref<AppSettings | null>(null);
@@ -215,12 +216,13 @@ onMounted(async () => {
       <section v-if="active === 'appearance'" class="settings__section">
         <h2>外观</h2>
         <div class="field">
-          <label class="field__label">主题</label>
-          <div class="field__options">
-            <button class="field__option field__option--active">深色</button>
-            <button class="field__option" disabled>浅色（开发中）</button>
-          </div>
+          <span class="field__label">主题</span>
+          <ThemeSwitcher />
         </div>
+        <p class="settings__note">
+          选择「跟随系统」时，ObsidianMind 会跟随 macOS / Windows 的外观设置自动切换；
+          选择浅色或深色后将固定下来，并在刷新后保持。
+        </p>
       </section>
 
       <!-- 高级 -->
@@ -340,7 +342,7 @@ onMounted(async () => {
   padding: 1px 8px;
   font-size: var(--fs-xs);
   color: var(--success);
-  background: rgba(74, 222, 128, 0.1);
+  background: var(--success-soft);
   border-radius: var(--r-full);
 }
 
@@ -399,7 +401,7 @@ onMounted(async () => {
 
 .status-dot--ok {
   background: var(--success);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 6px var(--success-glow);
 }
 
 .toggle {
@@ -423,7 +425,7 @@ onMounted(async () => {
   left: 2px;
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: var(--knob);
   border-radius: var(--r-full);
   transition: transform var(--dur) var(--ease);
 }
@@ -440,14 +442,14 @@ onMounted(async () => {
   padding: 7px var(--sp-4);
   font-size: var(--fs-sm);
   font-weight: 550;
-  color: #fff;
-  background: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary-solid);
   border-radius: var(--r-md);
   transition: background var(--dur-fast) var(--ease);
 }
 
 .settings__btn:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: var(--primary-solid-hover);
 }
 
 .settings__btn:disabled {
@@ -469,11 +471,11 @@ onMounted(async () => {
 .settings__btn--danger {
   color: var(--danger);
   background: transparent;
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  border: 1px solid var(--danger-border);
 }
 
 .settings__btn--danger:hover {
-  background: rgba(248, 113, 113, 0.08);
+  background: var(--danger-soft);
 }
 
 /* Vault 卡片 */

@@ -407,7 +407,7 @@ onBeforeUnmount(() => {
 .graph {
   position: relative;
   height: 100%;
-  background: radial-gradient(ellipse at 50% 40%, #14141b, var(--bg) 75%);
+  background: radial-gradient(ellipse at 50% 40%, var(--graph-glow), var(--bg) 75%);
   overflow: hidden;
 }
 
@@ -468,7 +468,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: var(--sp-4);
   padding: var(--sp-2) var(--sp-3);
-  background: rgba(22, 22, 28, 0.85);
+  background: var(--glass-1);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   backdrop-filter: blur(8px);
@@ -504,7 +504,7 @@ onBeforeUnmount(() => {
   max-height: calc(100% - var(--sp-8));
   overflow-y: auto;
   padding: var(--sp-4);
-  background: rgba(28, 28, 36, 0.95);
+  background: var(--glass-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-panel);

@@ -91,8 +91,29 @@ class VaultRepository {
     return this.root?.name || (this.isDemoVault ? '演示 Vault' : 'Obsidian Vault');
   }
 
+  /** 浏览器是否支持目录选择 / 拖入（File System Access API） */
   get supported(): boolean {
     return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+  }
+
+  /** 浏览器是否支持「拖入文件夹」直接拿到目录句柄 */
+  get dropSupported(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      typeof DataTransferItem !== 'undefined' &&
+      'getAsFileSystemHandle' in DataTransferItem.prototype
+    );
+  }
+
+  /**
+   * 连接外部传入的目录句柄（拖拽导入）。
+   * 与 pick() 的唯一区别是不弹系统目录选择器，其余权限校验与后续流程完全一致。
+   */
+  async connectExternal(handle: FileSystemDirectoryHandle): Promise<void> {
+    if (handle.kind !== 'directory') {
+      throw new Error('请拖入一个文件夹，而不是单个文件');
+    }
+    await this.connect(handle, false);
   }
 
   /* ---------- 连接 ---------- */

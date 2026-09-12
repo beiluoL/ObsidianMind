@@ -391,8 +391,8 @@ onBeforeUnmount(stopConflictPolling);
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-4);
-  background: rgba(250, 179, 135, 0.08);
-  border-bottom: 1px solid rgba(250, 179, 135, 0.3);
+  background: var(--warning-soft);
+  border-bottom: 1px solid var(--warning-border);
   font-size: var(--fs-sm);
   flex-shrink: 0;
 }
@@ -431,7 +431,7 @@ onBeforeUnmount(stopConflictPolling);
   align-items: center;
   gap: 4px;
   color: var(--warning);
-  border-color: rgba(250, 179, 135, 0.4);
+  border-color: var(--warning-border-strong);
 }
 
 .note__scroll {
@@ -525,14 +525,14 @@ onBeforeUnmount(stopConflictPolling);
   padding: 6px var(--sp-4);
   font-size: var(--fs-sm);
   font-weight: 550;
-  color: #fff;
-  background: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary-solid);
   border-radius: var(--r-md);
   transition: all var(--dur-fast) var(--ease);
 }
 
 .note__save-btn:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: var(--primary-solid-hover);
 }
 
 .note__save-btn:disabled {

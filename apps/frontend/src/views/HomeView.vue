@@ -307,14 +307,14 @@ function askAi(question: string): void {
   padding: 6px var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 550;
-  color: #fff;
-  background: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary-solid);
   border-radius: var(--r-md);
   transition: all var(--dur-fast) var(--ease);
 }
 
 .home__ai-btn:hover {
-  background: var(--primary-hover);
+  background: var(--primary-solid-hover);
 }
 
 .home__ai-ghost {

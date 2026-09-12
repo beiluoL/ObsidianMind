@@ -22,6 +22,8 @@ export const useVaultStore = defineStore('vault', () => {
   const welcomeDismissed = ref(localStorage.getItem('om-welcome-dismissed') === '1');
   const pendingHandle = ref<FileSystemDirectoryHandle | null>(null);
   const showWelcome = ref(false);
+  /** 正在连接 / 扫描：UI 据此禁用重复点击并展示 Loading */
+  const connecting = ref(false);
 
   let watcherTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -99,15 +101,28 @@ export const useVaultStore = defineStore('vault', () => {
     }
   }
 
+  /**
+   * 连接成功后的统一收尾：扫描 → 起监听 → 关闭引导层。
+   * 扫描期间「不」提前关闭弹窗，让 UI 有机会展示「正在读取 Vault…」；
+   * 扫描失败则保持弹窗打开，把错误留给用户可见。
+   */
+  async function finishConnect(): Promise<void> {
+    status.value = 'connected';
+    error.value = '';
+    await scanAndLoad();
+    // 扫描失败时保持引导层打开，让错误对用户可见（TS 需要放宽字面量窄化）
+    if ((status.value as string) === 'error') return;
+    startWatcher();
+    showWelcome.value = false;
+  }
+
   /** 用户主动选择 Vault 目录（浏览器目录选择器） */
   async function pickAndConnect(): Promise<boolean> {
+    if (connecting.value) return false;
+    connecting.value = true;
     try {
       await vaultRepository.pick();
-      status.value = 'connected';
-      error.value = '';
-      showWelcome.value = false;
-      await scanAndLoad();
-      startWatcher();
+      await finishConnect();
       return true;
     } catch (err) {
       const message = (err as Error).message;
@@ -115,6 +130,25 @@ export const useVaultStore = defineStore('vault', () => {
       status.value = 'error';
       error.value = message;
       return false;
+    } finally {
+      connecting.value = false;
+    }
+  }
+
+  /** 拖入文件夹直接连接（与 pick 走同一套后续流程） */
+  async function connectHandle(handle: FileSystemDirectoryHandle): Promise<boolean> {
+    if (connecting.value) return false;
+    connecting.value = true;
+    try {
+      await vaultRepository.connectExternal(handle);
+      await finishConnect();
+      return true;
+    } catch (err) {
+      status.value = 'error';
+      error.value = (err as Error).message;
+      return false;
+    } finally {
+      connecting.value = false;
     }
   }
 
@@ -125,26 +159,23 @@ export const useVaultStore = defineStore('vault', () => {
     const granted = await vaultRepository.requestPermission(handle);
     if (granted) {
       pendingHandle.value = null;
-      status.value = 'connected';
-      showWelcome.value = false;
-      await scanAndLoad();
-      startWatcher();
+      await finishConnect();
     }
     return granted;
   }
 
   /** 连接浏览器内置演示 Vault（OPFS，真实文件读写，同一套 Repository 代码） */
   async function connectDemo(): Promise<void> {
+    if (connecting.value) return;
+    connecting.value = true;
     try {
       await vaultRepository.connectDemo();
-      status.value = 'connected';
-      error.value = '';
-      showWelcome.value = false;
-      await scanAndLoad();
-      startWatcher();
+      await finishConnect();
     } catch (err) {
       status.value = 'error';
       error.value = `演示 Vault 连接失败：${(err as Error).message}`;
+    } finally {
+      connecting.value = false;
     }
   }
 
@@ -203,8 +234,10 @@ export const useVaultStore = defineStore('vault', () => {
     changes,
     showWelcome,
     pendingHandle,
+    connecting,
     init,
     pickAndConnect,
+    connectHandle,
     grantPermission,
     connectDemo,
     disconnect,

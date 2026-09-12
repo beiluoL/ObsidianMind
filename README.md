@@ -88,6 +88,24 @@ docker compose up -d ollama
 
 Frontend 环境变量见 `apps/frontend/.env.example`（`VITE_API_BASE_URL`）。
 
+## Frontend UI / Design System
+
+所有颜色统一走 Theme Token，组件内禁止硬编码 `hex` / `rgba`。
+
+```text
+apps/frontend/src/assets/styles/
+├── tokens.css        # 与主题无关的骨架变量：字体 / 间距 / 圆角 / 布局 / 动效 / 层级
+├── theme-dark.css    # 深色配色（:root 默认 + [data-theme="dark"]）
+├── theme-light.css   # 浅色配色（[data-theme="light"] 覆盖）
+└── base.css          # reset + 通用元素 + focus-visible + Markdown 渲染
+```
+
+- **主题三态**：跟随系统 / 浅色 / 深色。设置入口「设置 → 外观」，顶栏提供快捷切换按钮。
+- **持久化**：`localStorage['obsidianmind-theme']`，默认 `system`，刷新不丢失。
+- **防闪烁（FOUC）**：`index.html` 内联脚本在任何样式执行前，按同一份 key 写入 `<html data-theme>`。
+- **Vault 导入弹窗**：`components/vault/`（`VaultConnectModal` / `VaultPicker` / `LocalFirstNotice`），
+  支持目录选择与拖入文件夹（`DataTransferItem.getAsFileSystemHandle()`，Chromium），带 Loading / 错误态。
+
 ## Roadmap
 
 | Phase | 内容 |

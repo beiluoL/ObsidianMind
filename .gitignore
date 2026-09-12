@@ -32,5 +32,11 @@ ollama-data/
 
 # ---- 用户真实 Obsidian Vault（严禁提交）----
 # 真实 Vault 只存在于用户本机，通过运行时显式连接，任何情况下不得提交到 Git
+# 注意：必须锚定仓库根（/Vault/）。macOS 上 core.ignoreCase=true，
+# 不锚定的 `Vault/` 会连 `src/components/vault/` 一起误伤，导致组件目录被静默忽略。
 *.vault/
-Vault/
+/Vault/
+/vault-data/
+
+# 本地运行产生的 PID / 日志
+.run/

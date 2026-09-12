@@ -4,6 +4,11 @@ interface FileSystemHandle {
   requestPermission?(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
 }
 
+/** 拖拽落区：从 DataTransferItem 直接拿目录句柄（Chromium 支持） */
+interface DataTransferItem {
+  getAsFileSystemHandle?(): Promise<FileSystemHandle | null>;
+}
+
 interface FileSystemDirectoryHandle {
   entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
   keys(): AsyncIterableIterator<string>;

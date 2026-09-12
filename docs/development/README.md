@@ -34,3 +34,4 @@ curl http://localhost:8080/api/health   # {"status":"UP"}
 2. 前端 API 调用统一走 `src/services/api.ts`，禁止组件内硬编码后端地址
 3. 安全红线：只访问用户显式连接的 Vault，绝不扫描 Home / 全盘；路径必须过 `VaultPaths` 校验
 4. 密钥一律走环境变量，任何 Key / Token / 模型文件 / Vault 数据不入 Git
+5. **UI 颜色必须走 Theme Token**（`src/assets/styles/`），组件内禁止硬编码 `hex` / `rgba`；详见 [design-system.md](./design-system.md)
