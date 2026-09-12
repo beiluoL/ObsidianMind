@@ -11,6 +11,16 @@ public final class SnippetBuilder {
     private SnippetBuilder() {
     }
 
+    /**
+     * 构建搜索摘要：取查询各词的最早命中位置，向前保留 60 字符上下文向后扩展至 maxLen，
+     * 换行压平为空格、首尾按截断情况补省略号。
+     * 边界：无命中时返回开头 maxLen 字符（追加省略号）；内容为空返回空串。
+     *
+     * @param content 待摘要的正文（不含 frontmatter）
+     * @param query   原始查询串（多词空白分隔，大小写不敏感）
+     * @param maxLen  期望最大长度（硬上限 MAX_SNIPPET=180）
+     * @return 摘要文本
+     */
     public static String build(String content, String query, int maxLen) {
         if (content == null || content.isBlank()) {
             return "";

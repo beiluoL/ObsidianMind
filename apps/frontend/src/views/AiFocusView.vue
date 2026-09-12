@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * AI 焦点视图：全屏对话模式（复用 ChatPanel），提供示例问题快捷发起。
+ */
 import { useRouter } from 'vue-router';
 import {
   Lightbulb,

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 顶栏：全局搜索入口（跳转 /search 并带回填词）与新建/连接 Vault 快捷操作。
+ */
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Search, Settings, Gem, ChevronDown } from 'lucide-vue-next';

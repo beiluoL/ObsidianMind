@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 设置页：Vault 连接管理（连接/断开/重扫）、演示 Vault 说明与索引状态展示。
+ */
 import { onMounted, ref } from 'vue';
 import {
   Bot,

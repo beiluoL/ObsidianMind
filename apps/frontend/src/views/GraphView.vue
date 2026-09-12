@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 知识图谱页：加载真实图谱数据（Loading 态 → KnowledgeGraph 渲染）。
+ */
 import { onMounted, ref } from 'vue';
 import { Waypoints, Loader2 } from 'lucide-vue-next';
 import type { KnowledgeGraphData } from '@/types/knowledge';

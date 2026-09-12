@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 文件树：递归渲染 Vault 目录结构，支持展开/折叠（展开态持久化）、
+ * 点击笔记跳转 /note/:id（id 为含斜杠的相对路径）。
+ */
 import type { VaultNode } from '@/types/knowledge';
 import { useKnowledgeStore } from '@/stores/knowledge';
 import { useRouter } from 'vue-router';

@@ -15,6 +15,12 @@ public class WikiLinkParser {
 
     private static final Pattern WIKI_LINK = Pattern.compile("\\[\\[([^\\]]+)]]");
 
+    /**
+     * 提取正文中的 wiki link 目标。
+     *
+     * @param content Markdown 正文，null 或空白视为无链接
+     * @return 去重后的 target 列表（保持出现顺序），已剥离 |alias 与 #heading 后缀
+     */
     public java.util.List<String> parse(String content) {
         Set<String> targets = new LinkedHashSet<>();
         if (content == null || content.isBlank()) {

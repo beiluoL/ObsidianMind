@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 侧边导航：六个主视图入口，当前路由高亮（含 /note/:id 归属知识库高亮的边界处理）。
+ */
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {

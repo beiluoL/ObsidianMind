@@ -38,6 +38,14 @@ public class ChatService {
         this.searchService = searchService;
     }
 
+    /**
+     * 生成回答（Phase 1 Mock）：answer 为结构占位文本，relatedNotes 取真实全文检索 Top3——
+     * 检索结果是真实的，只有 LLM 生成部分是 Mock（不伪造检索）。
+     *
+     * @param message 用户问题（同时作为全文检索的 query）
+     * @param scope   检索范围（Phase 1 仅记录日志，未启用范围过滤）
+     * @return answer + sources（恒为空，RAG 接入后填充）+ relatedNotes
+     */
     public ChatAnswer answer(String message, String scope) {
         log.info("Chat 请求: scope={}, message 长度={}", scope, message.length());
         List<SearchResult> related = searchService.search(message);
@@ -90,6 +98,7 @@ public class ChatService {
         return emitter;
     }
 
+    /** 手工拼接 done 事件的 JSON（仅转义反斜杠与双引号；relatedNotes 数量有限且字段受控）。 */
     private String toJson(ChatAnswer chatAnswer) {
         StringBuilder related = new StringBuilder("[");
         for (int i = 0; i < chatAnswer.relatedNotes().size(); i++) {

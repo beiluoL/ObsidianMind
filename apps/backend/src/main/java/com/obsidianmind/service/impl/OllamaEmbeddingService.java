@@ -54,6 +54,13 @@ public class OllamaEmbeddingService implements EmbeddingService {
         }
     }
 
+    /**
+     * 批量向量化：POST /api/embed，解析响应 embeddings 数组。
+     *
+     * @param texts 输入文本列表（顺序即返回顺序）
+     * @return 与输入一一对应的向量列表
+     * @throws OllamaUnavailableException 请求失败或响应解析失败
+     */
     @Override
     public List<float[]> embed(List<String> texts) {
         try {

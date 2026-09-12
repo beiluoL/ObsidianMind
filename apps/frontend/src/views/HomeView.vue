@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 首页：最近笔记列表 + 笔记统计概览（真实 Vault 数据，未连接时展示引导态）。
+ */
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {

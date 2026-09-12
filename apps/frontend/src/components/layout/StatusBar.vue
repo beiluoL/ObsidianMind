@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 状态栏：Vault 连接状态、扫描统计与索引进度实时展示（数据源自 knowledge/vault store）。
+ */
 import { useKnowledgeStore } from '@/stores/knowledge';
 import { useVaultStore } from '@/stores/vault';
 import { Lock, Database, Cpu, Layers, RefreshCw, FolderOpen, Loader2 } from 'lucide-vue-next';

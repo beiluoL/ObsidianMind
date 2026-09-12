@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 笔记页：阅读/编辑双模式切换，⌘S 保存；保存前比对 mtime 检测外部修改，
+ * 冲突时展示横幅由用户选择（覆盖/放弃）；轮询感知文件变化并刷新 backlinks。
+ */
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { marked } from 'marked';
 import { useRoute, useRouter } from 'vue-router';

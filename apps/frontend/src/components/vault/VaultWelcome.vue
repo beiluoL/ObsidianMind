@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Vault 连接欢迎层：三种入口——授权真实磁盘目录（File System Access API）、
+ * 载入 OPFS 演示 Vault、连接后端 Vault；明确提示「仅访问用户显式选择的目录」。
+ */
 import { computed } from 'vue';
 import { FolderOpen, HardDriveDownload, X, ShieldCheck, Gem } from 'lucide-vue-next';
 import { useVaultStore } from '@/stores/vault';

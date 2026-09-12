@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * AI 输入框：多行输入、Enter 发送（Shift+Enter 换行）、发送/停止状态切换。
+ */
 import { useChatStore } from '@/stores/chat';
 import { Paperclip, Brain, SendHorizontal, Loader2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';

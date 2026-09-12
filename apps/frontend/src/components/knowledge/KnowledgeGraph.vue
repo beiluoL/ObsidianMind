@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 知识图谱：SVG 力导向布局（requestAnimationFrame 迭代斥力/弹簧力收敛），
+ * 初始化 fitToView 保证世界坐标（1200×800）节点落在可视区。
+ * 节点点击展示详情面板（真实 backlinks 驱动），拖拽临时固定节点位置。
+ */
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { GraphTopic } from '@/types/knowledge';
 import { useKnowledgeStore } from '@/stores/knowledge';

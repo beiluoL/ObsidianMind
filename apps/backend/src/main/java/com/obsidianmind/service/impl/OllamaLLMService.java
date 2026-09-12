@@ -52,6 +52,14 @@ public class OllamaLLMService implements LLMService {
         }
     }
 
+    /**
+     * 非流式补全：POST /api/chat，固定两段消息（system + user），解析响应 message.content。
+     *
+     * @param systemPrompt 系统提示词
+     * @param userMessage  用户消息
+     * @return 模型生成文本；响应缺字段时返回空串
+     * @throws OllamaUnavailableException 请求失败或响应解析失败
+     */
     @Override
     public String complete(String systemPrompt, String userMessage) {
         try {

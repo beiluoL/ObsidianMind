@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 应用外壳：三栏布局（Header / Sidebar / 工作区 / AI 面板）+ 欢迎引导层。
+ * 未连接 Vault 时整屏展示 VaultWelcome；连接后由各路由视图接管工作区。
+ */
 import { computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useKnowledgeStore } from '@/stores/knowledge';

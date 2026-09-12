@@ -41,6 +41,11 @@ public class IndexService {
         this.markdownParser = markdownParser;
     }
 
+    /**
+     * 异步索引任务：CAS 抢占状态（仅 IDLE/READY/FAILED 可启动，重复触发直接忽略）
+     * → 全量扫描 → 逐篇 解析+切块（单篇失败计入 failedNotes 不中断）→ READY。
+     * 任意阶段异常最终落到 FAILED，状态与计数器在开始时统一复位。
+     */
     @Async
     public void startIndexing() {
         if (!status.compareAndSet(Status.IDLE, Status.SCANNING)

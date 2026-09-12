@@ -30,6 +30,13 @@ public class MarkdownParser {
         this.wikiLinkParser = wikiLinkParser;
     }
 
+    /**
+     * 解析入口：frontmatter → 标签（frontmatter tags 与正文行内 #tag 合并去重，代码块内的 # 不计入）
+     * → wiki links → 标题（frontmatter title → 正文首个 H1）。
+     *
+     * @param raw Markdown 原文，只读不改写
+     * @return 元数据/标签/链接/标题/正文的聚合结果
+     */
     public ParsedMarkdown parse(String raw) {
         Result fm = frontmatterParser.parse(raw);
         Map<String, Object> metadata = fm.metadata();

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * 单条聊天消息：Markdown 渲染回答正文 + 检索阶段指示（Sources 占位 Phase 3 接入）。
+ */
 import { computed } from 'vue';
 import { marked } from 'marked';
 import { FileText, ChevronRight, Link2 } from 'lucide-vue-next';

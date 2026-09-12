@@ -29,6 +29,14 @@ public class NoteService {
         this.markdownParser = markdownParser;
     }
 
+    /**
+     * 读取单篇笔记：标题解析优先级 frontmatter title → 正文首个 H1 → 文件名兜底；
+     * 目录取相对路径前缀（根级为空串），字数按去空白后的字符数统计。
+     *
+     * @param id 笔记 id（Vault 相对路径，如 "AI/RAG.md"）
+     * @return 聚合了元数据/标签/链接/正文的 Note
+     * @throws NoteNotFoundException 笔记不存在
+     */
     public Note getNote(String id) {
         String raw = vaultRepository.readRaw(id);
         ParsedMarkdown parsed = markdownParser.parse(raw);

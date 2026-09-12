@@ -41,6 +41,14 @@ public class VaultRepository {
     private volatile int folderCount;
     private volatile Instant lastScanAt;
 
+    /**
+     * 连接 Vault：校验路径存在、是目录、可读，成功后清空历史扫描元数据。
+     *
+     * @param path 用户显式指定的 Vault 绝对路径
+     * @throws VaultNotFoundException   路径不存在
+     * @throws InvalidRequestException  路径不是目录
+     * @throws VaultAccessDeniedException 目录不可读
+     */
     public synchronized void connect(String path) {
         Path candidate = Path.of(path).toAbsolutePath().normalize();
         if (!Files.exists(candidate)) {
@@ -90,6 +98,13 @@ public class VaultRepository {
         }
     }
 
+    /**
+     * 全量扫描 Vault：递归收集 Markdown 文件元数据（相对路径/大小/mtime），不读取正文。
+     * 边界：隐藏目录（. 开头，如 .obsidian）整棵跳过；每次扫描前清空旧元数据；
+     * 扫描 IO 异常包装为 NoteReadFailedException，不留下半新半旧的元数据。
+     *
+     * @return 扫描统计（笔记数 / 文件夹数 / 耗时 ms）
+     */
     public ScanResult scan() {
         Path vaultRoot = requireRoot();
         files.clear();
@@ -143,6 +158,10 @@ public class VaultRepository {
         return nodes;
     }
 
+    /**
+     * 递归收集文件树节点：跳过隐藏目录/文件；目录递归深度上限 32（防符号链接环/超深层级）；
+     * 不可读目录仅告警跳过，不中断整棵树构建。
+     */
     private void collectNode(Path vaultRoot, Path entry, List<FileNode> nodes, int depth) {
         String name = entry.getFileName().toString();
         if (name.startsWith(".")) {

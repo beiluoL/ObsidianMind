@@ -19,6 +19,17 @@ public class Chunker {
     private static final int MAX_CHARS = 800;
     private static final int MIN_CHARS = 60;
 
+    /**
+     * 切块主流程：按标题分节 → 段落聚合到 800 字符上限 → 生成带全局序号的 Chunk。
+     * Chunk id 形如 {noteId}#c{n}；metadata 携带 title/path/tags 供检索回溯。
+     * 边界：正文非空但未切出任何块时整篇兜底为单块；空白块跳过。
+     *
+     * @param noteId 笔记唯一 id（Vault 相对路径）
+     * @param title  笔记标题（frontmatter 或文件名兜底）
+     * @param path   笔记相对路径（写入 metadata）
+     * @param parsed 已解析的 Markdown 结构（body/tags）
+     * @return 有序 Chunk 列表，body 为空时返回空列表
+     */
     public List<Chunk> chunk(String noteId, String title, String path, ParsedMarkdown parsed) {
         List<Chunk> chunks = new ArrayList<>();
         String body = parsed.body() == null ? "" : parsed.body();
@@ -43,6 +54,7 @@ public class Chunker {
         return chunks;
     }
 
+    /** 按一级到六级标题切分正文；标题行本身归入新节文本，节间共用末节兜底（无标题时整篇一节）。 */
     private List<Section> splitByHeadings(String body) {
         List<Section> sections = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -91,6 +103,7 @@ public class Chunker {
         return pieces;
     }
 
+    /** 超长段落按行二次切分（聚合阶段的兜底路径，保证单块不超上限）。 */
     private List<String> splitByLines(String paragraph) {
         List<String> parts = new ArrayList<>();
         StringBuilder buf = new StringBuilder();

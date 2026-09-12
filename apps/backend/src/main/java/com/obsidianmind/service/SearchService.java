@@ -33,6 +33,14 @@ public class SearchService {
         this.markdownParser = markdownParser;
     }
 
+    /**
+     * 全文检索入口：遍历全部笔记元数据，逐篇读取解析后按多词打分排序。
+     * 边界：空查询返回空列表；单篇读取失败仅告警跳过（不中断整体检索）；
+     * 结果按分数降序截断至 MAX_RESULTS（50）。
+     *
+     * @param query 原始查询串，多词以空白分隔，大小写不敏感
+     * @return 匹配结果（snippet 围绕首个命中词，matchType 恒为 TEXT_MATCH）
+     */
     public List<SearchResult> search(String query) {
         String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         if (q.isEmpty()) {
@@ -63,6 +71,7 @@ public class SearchService {
         return results.size() > MAX_RESULTS ? results.subList(0, MAX_RESULTS) : results;
     }
 
+    /** 多词加权打分：标题全等 +4 / 包含 +3，Tag 命中 +2，路径命中 +1，正文词频 +0.4×min(tf,5)；各词得分求和。 */
     private double score(FileMeta meta, ParsedMarkdown parsed, String raw, List<String> terms) {
         double total = 0;
         for (String term : terms) {

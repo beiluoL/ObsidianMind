@@ -1,3 +1,6 @@
+/**
+ * 应用入口：装配 Pinia、Router 并挂载 App 外壳。
+ */
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';

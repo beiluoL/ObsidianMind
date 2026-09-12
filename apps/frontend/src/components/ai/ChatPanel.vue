@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * AI 会话面板：消息列表自动滚动到底部、清空会话、回答阶段（检索/生成）状态展示。
+ */
 import { nextTick, ref, watch } from 'vue';
 import { Bot, Sparkles, Trash2 } from 'lucide-vue-next';
 import { useChatStore } from '@/stores/chat';
