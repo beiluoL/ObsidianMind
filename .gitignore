@@ -1,4 +1,36 @@
+# ---- 依赖与构建产物 ----
 node_modules/
 dist/
-backend/target/
+
+# ---- Java / Maven ----
+target/
+*.class
+
+# ---- 环境变量与密钥（.env.example 除外）----
+.env
+.env.*
+!.env.example
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.iml
+
+# ---- 系统文件 ----
 .DS_Store
+Thumbs.db
+
+# ---- 日志 ----
+*.log
+
+# ---- 本地运行数据（Milvus / Ollama / Vault 数据一律不入库）----
+data/
+volumes/
+models/
+milvus-data/
+ollama-data/
+
+# ---- 用户真实 Obsidian Vault（严禁提交）----
+# 真实 Vault 只存在于用户本机，通过运行时显式连接，任何情况下不得提交到 Git
+*.vault/
+Vault/
