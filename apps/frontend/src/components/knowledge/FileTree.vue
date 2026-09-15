@@ -8,16 +8,21 @@ import { useKnowledgeStore } from '@/stores/knowledge';
 import { useRouter } from 'vue-router';
 import { ChevronRight, FileText, Folder } from 'lucide-vue-next';
 
-const props = defineProps<{
-  node: VaultNode;
-  depth: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    node: VaultNode;
+    depth: number;
+    /** 文件名过滤态：全部文件夹视为展开，保证命中结果直接可见 */
+    forceOpen?: boolean;
+  }>(),
+  { forceOpen: false },
+);
 
 const knowledge = useKnowledgeStore();
 const router = useRouter();
 
 const isFolder = (): boolean => props.node.type === 'folder';
-const isOpen = (): boolean => knowledge.expandedFolders.has(props.node.id);
+const isOpen = (): boolean => props.forceOpen || knowledge.expandedFolders.has(props.node.id);
 
 function onClick(): void {
   if (isFolder()) {
@@ -47,7 +52,13 @@ function onClick(): void {
     </button>
 
     <template v-if="isFolder() && isOpen() && node.children">
-      <FileTree v-for="child in node.children" :key="child.id" :node="child" :depth="depth + 1" />
+      <FileTree
+        v-for="child in node.children"
+        :key="child.id"
+        :node="child"
+        :depth="depth + 1"
+        :force-open="forceOpen"
+      />
     </template>
   </div>
 </template>

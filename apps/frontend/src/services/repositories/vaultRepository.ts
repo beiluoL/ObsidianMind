@@ -19,7 +19,12 @@ export class VaultWriteError extends Error {}
 export interface ScanSummary {
   noteCount: number;
   folderCount: number;
+  /** 读取/解析失败的文件数（不阻断整体导入） */
+  failedCount: number;
 }
+
+/** 扫描时忽略的目录名（小写比较）；`.` 开头的隐藏目录（.obsidian/.git/.trash 等）已单独跳过 */
+const IGNORED_DIRS = new Set(['node_modules', 'cache', 'temp', 'build', 'dist', 'target']);
 
 interface ContentCache {
   content: string;
@@ -39,6 +44,8 @@ import gcRootsMd from '../../../../../tests/fixtures/demo-vault/Java/GC Roots.md
 import concurrentMd from '../../../../../tests/fixtures/demo-vault/Java/并发编程.md?raw';
 import casMd from '../../../../../tests/fixtures/demo-vault/Java/CAS.md?raw';
 import springMd from '../../../../../tests/fixtures/demo-vault/Java/Spring IOC 与 AOP.md?raw';
+import hashMapMd from '../../../../../tests/fixtures/demo-vault/Java/HashMap.md?raw';
+import tokenMd from '../../../../../tests/fixtures/demo-vault/AI/Token.md?raw';
 import projectMd from '../../../../../tests/fixtures/demo-vault/Projects/ObsidianMind.md?raw';
 import readingMd from '../../../../../tests/fixtures/demo-vault/01-个人成长/读书笔记方法.md?raw';
 
@@ -55,6 +62,8 @@ const DEMO_FILES: Record<string, string> = {
   'Java/并发编程.md': concurrentMd,
   'Java/CAS.md': casMd,
   'Java/Spring IOC 与 AOP.md': springMd,
+  'Java/HashMap.md': hashMapMd,
+  'AI/Token.md': tokenMd,
   'Projects/ObsidianMind.md': projectMd,
   '01-个人成长/读书笔记方法.md': readingMd,
 };
@@ -230,30 +239,37 @@ class VaultRepository {
     const files = new Map<string, VaultFileMeta>();
     let folderCount = 0;
     let found = 0;
+    let failedCount = 0;
 
     const walk = async (dir: FileSystemDirectoryHandle, prefix: string): Promise<void> => {
       for await (const [name, handle] of dir.entries()) {
-        if (name.startsWith('.')) continue; // 跳过隐藏文件（.obsidian 等）
-        const path = prefix ? `${prefix}/${name}` : name;
+        if (name.startsWith('.')) continue; // 跳过隐藏目录（.obsidian / .git / .trash 等）
         if (handle.kind === 'directory') {
+          if (IGNORED_DIRS.has(name.toLowerCase())) continue; // 跳过缓存/构建类目录
           folderCount++;
-          await walk(handle as FileSystemDirectoryHandle, path);
+          await walk(handle as FileSystemDirectoryHandle, prefix ? `${prefix}/${name}` : name);
         } else if (name.toLowerCase().endsWith('.md')) {
           found++;
           onProgress?.(found);
-          const file = await (handle as FileSystemFileHandle).getFile();
-          const content = await file.text();
-          const parsed = parseMarkdown(content);
-          files.set(path, {
-            path,
-            name,
-            title: resolveTitle(name, parsed),
-            extension: 'md',
-            size: file.size,
-            modifiedAt: file.lastModified,
-            tags: parsed.tags,
-            frontmatter: parsed.frontmatter,
-          });
+          // 单个文件读取/解析失败只计数不中断，保证整体导入可用（成功 N / 失败 M）
+          try {
+            const file = await (handle as FileSystemFileHandle).getFile();
+            const content = await file.text();
+            const parsed = parseMarkdown(content);
+            const path = prefix ? `${prefix}/${name}` : name;
+            files.set(path, {
+              path,
+              name,
+              title: resolveTitle(name, parsed),
+              extension: 'md',
+              size: file.size,
+              modifiedAt: file.lastModified,
+              tags: parsed.tags,
+              frontmatter: parsed.frontmatter,
+            });
+          } catch {
+            failedCount++;
+          }
         }
       }
     };
@@ -261,7 +277,7 @@ class VaultRepository {
     await walk(root, '');
     this.files = files;
     this.folderCount = folderCount;
-    return { noteCount: files.size, folderCount };
+    return { noteCount: files.size, folderCount, failedCount };
   }
 
   /** 扫描后建立增量对比基线（watcher 首次 tick 前必须调用） */

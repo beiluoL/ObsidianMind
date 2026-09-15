@@ -55,15 +55,25 @@ export const useVaultStore = defineStore('vault', () => {
       const summary = await vaultRepository.scan((found) => {
         progress.value = { scanning: true, phase: 'scanning', found, message: `已发现 ${found} 篇笔记` };
       });
+      // 空库：没有发现任何 Markdown → 视为无效 Vault，断开并给出明确指引
+      if (summary.noteCount === 0) {
+        stopWatcher();
+        await vaultRepository.disconnect();
+        progress.value = { scanning: false, phase: 'idle', found: 0, message: '' };
+        status.value = 'error';
+        error.value = '没有发现 Markdown 文件，请选择包含 Obsidian 笔记的 Vault。';
+        return;
+      }
       vaultRepository.baseline();
       await vaultIdb.saveMeta({ lastScanAt: new Date().toISOString() });
       await knowledge.reloadAll();
       await refreshInfo();
+      const failedNote = summary.failedCount ? ` · ${summary.failedCount} 个文件无法读取` : '';
       progress.value = {
         scanning: false,
         phase: 'done',
         found: summary.noteCount,
-        message: `扫描完成：${summary.noteCount} 篇笔记 · ${summary.folderCount} 个文件夹`,
+        message: `扫描完成：${summary.noteCount} 篇笔记 · ${summary.folderCount} 个文件夹${failedNote}`,
       };
       setTimeout(() => {
         progress.value = { scanning: false, phase: 'idle', found: 0, message: '' };

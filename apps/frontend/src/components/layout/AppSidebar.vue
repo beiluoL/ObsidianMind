@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * 侧边导航：六个主视图入口，当前路由高亮（含 /note/:id 归属知识库高亮的边界处理）。
+ * 文件树支持按文件名过滤：命中笔记保留、命中文件夹连同子树保留，过滤态下自动展开。
  */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   House,
@@ -19,11 +20,32 @@ import FileTree from '@/components/knowledge/FileTree.vue';
 import { useKnowledgeStore } from '@/stores/knowledge';
 import { useVaultStore } from '@/stores/vault';
 import { Loader2 } from 'lucide-vue-next';
+import type { VaultNode } from '@/types/knowledge';
 
 const route = useRoute();
 const router = useRouter();
 const knowledge = useKnowledgeStore();
 const vault = useVaultStore();
+
+/** 文件树过滤关键词（按文件名匹配，大小写不敏感） */
+const treeFilter = ref('');
+
+/** 过滤后文件树：命中笔记保留；有命中后代的文件夹保留（子树随之保留） */
+const filteredTree = computed<VaultNode | null>(() => {
+  const keyword = treeFilter.value.trim().toLowerCase();
+  const root = knowledge.tree;
+  if (!keyword || !root) return root;
+  const prune = (node: VaultNode): VaultNode | null => {
+    if (node.type === 'note') {
+      return node.name.toLowerCase().includes(keyword) ? node : null;
+    }
+    const children = (node.children ?? [])
+      .map(prune)
+      .filter((child): child is VaultNode => child !== null);
+    return children.length ? { ...node, children } : null;
+  };
+  return prune(root);
+});
 
 const navItems = [
   { name: 'home', label: '首页', icon: House },
@@ -88,12 +110,31 @@ function clickListItem(name: string): void {
       </div>
     </div>
 
+    <div class="sidebar__tree-search">
+      <Search :size="12" :stroke-width="1.8" class="sidebar__tree-search-icon" />
+      <input
+        v-model="treeFilter"
+        class="sidebar__tree-search-input"
+        type="text"
+        placeholder="搜索文件名…"
+        aria-label="按文件名过滤文件树"
+      />
+    </div>
+
     <div class="sidebar__tree">
       <div v-if="vault.progress.scanning && !knowledge.tree" class="sidebar__tree-loading">
         <Loader2 :size="15" class="spin" />
         <span>{{ vault.progress.message || '正在扫描知识库…' }}</span>
       </div>
-      <FileTree v-else-if="knowledge.tree" :node="knowledge.tree" :depth="0" />
+      <FileTree
+        v-else-if="filteredTree"
+        :node="filteredTree"
+        :depth="0"
+        :force-open="treeFilter.trim().length > 0"
+      />
+      <div v-else-if="treeFilter.trim()" class="sidebar__tree-loading">
+        <span>没有匹配「{{ treeFilter.trim() }}」的文件</span>
+      </div>
       <div v-else class="sidebar__tree-loading">
         <span>暂无数据</span>
       </div>
@@ -180,5 +221,40 @@ export default { name: 'AppSidebar' };
   flex: 1;
   overflow-y: auto;
   padding: 0 var(--sp-2) var(--sp-4);
+}
+
+.sidebar__tree-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 var(--sp-3) var(--sp-2);
+}
+
+.sidebar__tree-search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.sidebar__tree-search-input {
+  width: 100%;
+  height: 26px;
+  padding: 0 var(--sp-2) 0 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-raised, var(--surface));
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.sidebar__tree-search-input::placeholder {
+  color: var(--text-3);
+}
+
+.sidebar__tree-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 </style>
