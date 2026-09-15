@@ -34,8 +34,11 @@ const suggestions = [
   'Agent 是什么？和 RAG 有什么关系？',
 ];
 
+// 流式生成期间内容持续增长：跟随内容长度滚动（消息数量不变也要滚）
+const totalContentLength = () => chat.messages.reduce((sum, m) => sum + m.content.length, 0);
+
 watch(
-  () => chat.messages.length,
+  [() => chat.messages.length, totalContentLength],
   async () => {
     await nextTick();
     if (listRef.value) {

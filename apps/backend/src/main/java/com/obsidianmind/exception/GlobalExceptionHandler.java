@@ -55,7 +55,11 @@ public class GlobalExceptionHandler {
             case "VAULT_NOT_FOUND", "NOTE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "VAULT_ACCESS_DENIED" -> HttpStatus.FORBIDDEN;
             case "INVALID_REQUEST" -> HttpStatus.BAD_REQUEST;
-            case "OLLAMA_UNAVAILABLE", "MILVUS_UNAVAILABLE" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "OLLAMA_UNAVAILABLE", "MILVUS_UNAVAILABLE", "EMBEDDING_ERROR", "VECTOR_STORE_ERROR",
+                 "LLM_UNAVAILABLE" ->
+                    HttpStatus.SERVICE_UNAVAILABLE;
+            case "LLM_TIMEOUT" -> HttpStatus.GATEWAY_TIMEOUT;
+            case "CONFIGURATION_ERROR", "EMBEDDING_DIMENSION_MISMATCH" -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }

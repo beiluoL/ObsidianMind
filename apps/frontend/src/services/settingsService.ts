@@ -1,15 +1,16 @@
-import type { AppSettings, IndexStatus, ModelInfo, ServiceHealth } from '@/types/knowledge';
+import type { AppSettings, IndexResult, IndexStatus, ModelInfo, ServiceHealth } from '@/types/knowledge';
+import { apiFetch } from './api';
 
-/** 索引与设置服务 —— 未来替换为 /api/index /api/models /api/settings */
+/** 索引与设置服务：索引走真实后端（Phase 3），其余仍为 Mock */
 
 export const indexService = {
   async getStatus(): Promise<IndexStatus> {
     return { isIndexing: false, progress: 100, totalNotes: 1248, indexedNotes: 1248 };
   },
 
-  async triggerReindex(): Promise<void> {
-    // 未来: POST /api/index
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  /** 同步执行一次增量索引（扫描 → 解析 → 切块 → Embedding → Milvus） */
+  async triggerReindex(): Promise<IndexResult> {
+    return apiFetch<IndexResult>('/api/v1/index/run', { method: 'POST' });
   },
 };
 

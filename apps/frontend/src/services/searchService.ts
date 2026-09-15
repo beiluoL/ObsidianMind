@@ -1,4 +1,5 @@
-import type { KnowledgeGraphData, SearchResult, ServiceHealth } from '@/types/knowledge';
+import type { KnowledgeGraphData, SearchResult, SemanticSearchResponse, ServiceHealth } from '@/types/knowledge';
+import { apiFetch } from './api';
 import { knowledgeService } from './knowledgeService';
 
 /**
@@ -157,5 +158,16 @@ export const searchService = {
       connectionCount: 18492,
       lastIndexedAt: '2 分钟前',
     };
+  },
+};
+
+export const semanticSearchService = {
+  /** 语义检索：Query → Embedding → Milvus → Sources（服务端完成排序 / 去重 / 摘要，前端零技术参数） */
+  async search(query: string, topK?: number): Promise<SemanticSearchResponse> {
+    return apiFetch<SemanticSearchResponse>('/api/v1/search/semantic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, topK }),
+    });
   },
 };

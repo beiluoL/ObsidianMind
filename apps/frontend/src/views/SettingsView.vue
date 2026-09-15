@@ -15,8 +15,8 @@ import {
   FolderOpen,
   Loader2,
 } from 'lucide-vue-next';
-import type { AppSettings } from '@/types/knowledge';
-import { settingsService } from '@/services/settingsService';
+import type { AppSettings, IndexResult } from '@/types/knowledge';
+import { indexService, settingsService } from '@/services/settingsService';
 import { useVaultStore } from '@/stores/vault';
 import ThemeSwitcher from '@/components/theme/ThemeSwitcher.vue';
 
@@ -24,6 +24,26 @@ const active = ref('knowledge');
 const settings = ref<AppSettings | null>(null);
 const vault = useVaultStore();
 const fsSupported = 'showDirectoryPicker' in window;
+
+/** Phase 3 知识索引：同步执行 + 结果展示（Loading / Error / Result 三态） */
+const indexRunning = ref(false);
+const indexResult = ref<IndexResult | null>(null);
+const indexError = ref('');
+
+async function runIndex(): Promise<void> {
+  if (indexRunning.value) {
+    return;
+  }
+  indexRunning.value = true;
+  indexError.value = '';
+  try {
+    indexResult.value = await indexService.triggerReindex();
+  } catch (err) {
+    indexError.value = (err as Error).message;
+  } finally {
+    indexRunning.value = false;
+  }
+}
 
 const sections = [
   { key: 'model', label: 'AI 模型', icon: Bot },
@@ -185,8 +205,8 @@ onMounted(async () => {
             </p>
           </div>
           <div class="field">
-            <label class="field__label">分块策略（Phase 3 预留）</label>
-            <div class="field__static">递归分块 · 512 token · overlap 64</div>
+            <label class="field__label">分块策略</label>
+            <div class="field__static">标题边界分块 · 800 字符 · overlap 100（ai.chunk 可配置）</div>
           </div>
           <p class="settings__note">Markdown 是 Source of Truth，ObsidianMind 绝不改动你的目录结构与 Frontmatter。</p>
         </template>
@@ -209,7 +229,24 @@ onMounted(async () => {
           <label class="field__label">索引间隔</label>
           <div class="field__static">{{ settings.indexInterval }}</div>
         </div>
-        <button class="settings__btn">立即重建索引</button>
+        <button class="settings__btn" :disabled="indexRunning" @click="runIndex">
+          <Loader2 v-if="indexRunning" :size="13" class="spin" />
+          {{ indexRunning ? '正在同步知识库…' : '立即同步知识库' }}
+        </button>
+        <p v-if="indexError" class="settings__note">同步失败：{{ indexError }}</p>
+        <p v-if="indexResult" class="settings__note">
+          同步完成：已发现 {{ indexResult.total }} ·
+          新增 {{ indexResult.indexed }} ·
+          更新 {{ indexResult.updated }} ·
+          跳过 {{ indexResult.skipped }} ·
+          删除 {{ indexResult.deleted }} ·
+          失败 {{ indexResult.failed }} ·
+          共 {{ indexResult.chunkCount }} 个 Chunk（{{ indexResult.elapsedMs }}ms）
+          <template v-if="indexResult.errors.length">
+            <br />失败明细：<span v-for="e in indexResult.errors" :key="e.documentId">
+              {{ e.documentId }}（{{ e.code }}）</span>
+          </template>
+        </p>
       </section>
 
       <!-- 外观 -->

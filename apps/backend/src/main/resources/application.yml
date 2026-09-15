@@ -18,14 +18,52 @@ ai:
   ollama:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     chat-model: ${OLLAMA_CHAT_MODEL:qwen3}
-    embedding-model: ${OLLAMA_EMBEDDING_MODEL:qwen3-embedding}
+    embedding-model: ${OLLAMA_EMBEDDING_MODEL:bge-m3}
     # 健康检查 / 请求超时（秒），Ollama 不可用不能拖垮主应用
     timeout-seconds: 3
+  chunk:
+    # 切块上限（字符）与相邻块重叠（字符）。bge-m3 上下文 8192 token，800 字符 ≈ 400~500 token
+    size: ${AI_CHUNK_SIZE:800}
+    overlap: ${AI_CHUNK_OVERLAP:100}
+  embedding:
+    # 批量向量化：一次 HTTP 请求携带的 Chunk 数（禁止逐 Chunk 请求）
+    batch-size: ${AI_EMBEDDING_BATCH_SIZE:16}
+    # Embedding 专用超时（秒）：冷启动模型加载 + 批量推理，宽于健康探测的 3s
+    timeout-seconds: ${AI_EMBEDDING_TIMEOUT_SECONDS:30}
+  retrieval:
+    # 语义检索（Phase 4）：默认召回数 / 上限（防客户端传超大 TopK）
+    default-top-k: ${AI_RETRIEVAL_DEFAULT_TOP_K:5}
+    max-top-k: ${AI_RETRIEVAL_MAX_TOP_K:20}
+    # score-threshold 默认 0 = 关闭；COSINE 分布随模型而异，阈值必须来自评估集实测，禁止拍脑袋
+    score-threshold: ${AI_RETRIEVAL_SCORE_THRESHOLD:0}
+    # 同一文档在结果中的多样性上限（chunk 相关性 + 文档多样性）
+    max-per-document: ${AI_RETRIEVAL_MAX_PER_DOCUMENT:2}
+    # Source 摘要长度（码点安全截断，不破坏中文/emoji）
+    snippet-length: ${AI_RETRIEVAL_SNIPPET_LENGTH:200}
+    # Query 长度上限（防止恶意超长查询）
+    max-query-length: ${AI_RETRIEVAL_MAX_QUERY_LENGTH:512}
+  rag:
+    # RAG 问答（Phase 5）：进入 Prompt 的 Chunk 数 / 总字符上限（超限按相似度排名整体截断）
+    max-chunks: ${AI_RAG_MAX_CHUNKS:6}
+    max-chars: ${AI_RAG_MAX_CHARS:12000}
+    # RAG 要求贴资料作答，temperature 取低值
+    temperature: ${AI_RAG_TEMPERATURE:0.1}
+    # num_predict 上限，防异常大输出
+    max-tokens: ${AI_RAG_MAX_TOKENS:1024}
+    # thinking 模型是否先推理再作答：RAG 贴资料场景默认关闭（开启会把 token 预算耗在推理上导致正文为空）
+    think: ${AI_RAG_THINK:false}
+    # 流式 LLM 读超时（秒）：首 token 与 token 间隔共用
+    llm-timeout-seconds: ${AI_RAG_LLM_TIMEOUT_SECONDS:120}
+    # SSE 整体生命周期超时（秒）
+    stream-timeout-seconds: ${AI_RAG_STREAM_TIMEOUT_SECONDS:180}
 
 milvus:
   host: ${MILVUS_HOST:localhost}
   port: ${MILVUS_PORT:19530}
   timeout-seconds: 2
+  # Collection 固定名称（惰性创建，绝不随机）；维度来源见 docs/architecture/embedding.md（bge-m3 / qwen3-embedding 实测均为 1024）
+  collection: ${MILVUS_COLLECTION:obsidianmind_chunks}
+  vector-dimension: ${MILVUS_VECTOR_DIMENSION:1024}
 
 cors:
   # 开发环境允许本地前端来源；生产必须通过环境变量显式收敛

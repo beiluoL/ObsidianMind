@@ -41,6 +41,8 @@ public class VaultRepository {
             java.util.Set.of("node_modules", "cache", "temp", "build", "dist", "target");
 
     private volatile Path root;
+    /** 当前 Vault 的稳定标识 = 根路径的 SHA-256（不暴露绝对路径；向量索引按此隔离检索边界） */
+    private volatile String vaultId;
     private final Map<String, FileMeta> files = new ConcurrentHashMap<>();
     private volatile int folderCount;
     private volatile Instant lastScanAt;
@@ -65,6 +67,7 @@ public class VaultRepository {
             throw new VaultAccessDeniedException("目录不可读: " + path);
         }
         this.root = candidate;
+        this.vaultId = com.obsidianmind.util.Hashes.sha256Hex(candidate.toString());
         this.files.clear();
         this.lastScanAt = null;
         log.info("Vault connected: {}", candidate);
@@ -72,6 +75,7 @@ public class VaultRepository {
 
     public synchronized void disconnect() {
         this.root = null;
+        this.vaultId = null;
         this.files.clear();
         this.folderCount = 0;
         this.lastScanAt = null;
@@ -88,6 +92,12 @@ public class VaultRepository {
             throw new VaultNotFoundException("未连接 Vault，请先调用 POST /api/v1/vault/connect");
         }
         return current;
+    }
+
+    /** 当前 Vault 的稳定标识（根路径 SHA-256）；未连接时抛 VaultNotFoundException。 */
+    public String requireVaultId() {
+        requireRoot();
+        return vaultId;
     }
 
     /** 只在启动配置了默认路径时自动连接；路径无效则忽略（不阻塞启动）。 */

@@ -57,29 +57,59 @@ export interface SearchResult {
   matchTerms?: string[];
 }
 
-/** AI 回答中的引用来源 */
-export interface ChatSource {
-  noteId: string;
+/** Phase 5 RAG 回答的引用来源（后端 CitationView；index 与正文 [SRC-n] 数字一致） */
+export interface RagCitation {
+  index: number;
+  sourceId: string;
   title: string;
+  path: string;
+  heading: string;
+  snippet: string;
   score: number;
-  chunkId: string;
 }
 
-/** AI 回答中的相关笔记 */
-export interface RelatedNote {
-  noteId: string;
-  title: string;
-  score: number;
-  relation: string;
+/** Phase 5 RAG 性能指标（后端 RagMetrics） */
+export interface RagStreamMetrics {
+  retrievalMs: number;
+  contextMs: number;
+  firstTokenMs: number;
+  llmMs: number;
+  totalMs: number;
+  contextChunks: number;
+  contextChars: number;
+  promptChars: number;
+  contextTruncated: boolean;
 }
+
+/** done 事件负载（后端 RagCompletion） */
+export interface RagCompletionPayload {
+  content: string;
+  citedSourceIds: string[];
+  sources: RagCitation[];
+  metrics: RagStreamMetrics;
+  noContext: boolean;
+}
+
+/** 流式事件错误负载 */
+export interface RagStreamError {
+  code: string;
+  message: string;
+}
+
+/** 助手消息状态机：不用 content === '' 判断状态 */
+export type MessageStatus = 'streaming' | 'complete' | 'error' | 'cancelled';
 
 /** 一条聊天消息 */
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  sources: ChatSource[];
-  relatedNotes: RelatedNote[];
+  /** 引用来源（assistant 专用；citation 事件先于 token 到达，流式期间即可点击） */
+  sources: RagCitation[];
+  /** assistant 消息状态（user 消息恒为 complete） */
+  status: MessageStatus;
+  errorCode?: string;
+  errorMessage?: string;
   createdAt: string;
 }
 
@@ -125,4 +155,42 @@ export interface AppSettings {
   milvusPort: string;
   autoIndex: boolean;
   indexInterval: string;
+}
+
+/** Phase 3 知识索引 per-file 错误 */
+export interface IndexDocError {
+  documentId: string;
+  code: string;
+  message: string;
+}
+
+/** Phase 3 知识索引结果（POST /api/v1/index/run） */
+export interface IndexResult {
+  total: number;
+  indexed: number;
+  updated: number;
+  skipped: number;
+  deleted: number;
+  failed: number;
+  chunkCount: number;
+  elapsedMs: number;
+  errors: IndexDocError[];
+}
+
+/** Phase 4 语义检索 Source（后端 RetrievalService.Source） */
+export interface SemanticSource {
+  title: string;
+  path: string;
+  heading: string;
+  snippet: string;
+  score: number;
+  documentId: string;
+  chunkIndex: number;
+}
+
+/** Phase 4 语义检索响应（POST /api/v1/search/semantic） */
+export interface SemanticSearchResponse {
+  query: string;
+  sources: SemanticSource[];
+  elapsedMs: number;
 }

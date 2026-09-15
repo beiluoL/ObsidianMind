@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
- * 单条聊天消息：Markdown 渲染回答正文 + 检索阶段指示（Sources 占位 Phase 3 接入）。
+ * 单条聊天消息（Phase 5 RAG）：Markdown 渲染（DOMPurify 消毒）+ [SRC-n]→[n] 引用映射 + 流式状态。
+ * 引用来源为每条回答独立（citation 事件先于 token，流式期间即可点击）。
  */
 import { computed } from 'vue';
 import { marked } from 'marked';
-import { FileText, ChevronRight, Link2 } from 'lucide-vue-next';
+import DOMPurify from 'dompurify';
+import { FileText, AlertCircle, Ban } from 'lucide-vue-next';
 import type { ChatMessage } from '@/types/knowledge';
 import { useKnowledgeStore } from '@/stores/knowledge';
 
@@ -15,12 +17,20 @@ const props = defineProps<{
 const knowledge = useKnowledgeStore();
 const isUser = computed(() => props.message.role === 'user');
 
-const rendered = computed(() =>
-  isUser.value ? '' : (marked.parse(props.message.content, { async: false }) as string),
+// [SRC-1] 等内部引用标记 → 用户可读的 [1]（内部协议与 UI 解耦）
+const withCitationBadges = computed(() =>
+  props.message.content.replace(/\[SRC-(\d+)\]/gi, '[$1]'),
 );
 
-function openNote(noteId: string): void {
-  knowledge.openNote(noteId);
+const rendered = computed(() => {
+  if (isUser.value) return '';
+  const html = marked.parse(withCitationBadges.value, { async: false }) as string;
+  // LLM 输出可能回显知识库注入内容：渲染前必须消毒（07-security §5）
+  return DOMPurify.sanitize(html);
+});
+
+function openNote(path: string): void {
+  knowledge.openNote(path);
 }
 </script>
 
@@ -32,45 +42,39 @@ function openNote(noteId: string): void {
     <!-- AI 消息 -->
     <template v-else>
       <div class="msg__body md-body" v-html="rendered"></div>
+      <div v-if="message.status === 'streaming'" class="msg__caret"><span class="pulse-dot"></span></div>
 
-      <!-- 引用来源 -->
+      <!-- 状态条 -->
+      <div v-if="message.status === 'error'" class="msg__status msg__status--error">
+        <AlertCircle :size="13" />
+        <span>回答失败（{{ message.errorCode }}）：{{ message.errorMessage }}</span>
+      </div>
+      <div v-else-if="message.status === 'cancelled'" class="msg__status msg__status--cancelled">
+        <Ban :size="13" />
+        <span>已停止生成</span>
+      </div>
+
+      <!-- 引用来源（每条回答独立；[n] 与正文 [SRC-n] 一一对应） -->
       <div v-if="message.sources.length" class="msg__section">
         <div class="section-label">引用来源</div>
         <div class="msg__sources">
           <button
             v-for="src in message.sources"
-            :key="src.noteId + src.chunkId"
+            :key="src.sourceId"
             class="source-card"
-            @click="openNote(src.noteId)"
+            :title="`${src.path} · ${src.heading || '正文'}`"
+            @click="openNote(src.path)"
           >
+            <span class="source-card__index">[{{ src.index }}]</span>
             <FileText :size="14" class="source-card__icon" />
             <div class="source-card__meta">
               <span class="source-card__title">{{ src.title }}</span>
+              <span class="source-card__path">{{ src.path }}<template v-if="src.heading"> · {{ src.heading }}</template></span>
               <div class="source-card__bar">
-                <div class="source-card__fill" :style="{ width: `${src.score * 100}%` }"></div>
+                <div class="source-card__fill" :style="{ width: `${Math.round(src.score * 100)}%` }"></div>
               </div>
             </div>
             <span class="source-card__score">{{ Math.round(src.score * 100) }}%</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 相关笔记 -->
-      <div v-if="message.relatedNotes.length" class="msg__section">
-        <div class="section-label"><Link2 :size="11" style="vertical-align: -1px" /> 相关笔记</div>
-        <div class="msg__related">
-          <button
-            v-for="rel in message.relatedNotes"
-            :key="rel.noteId"
-            class="related-item"
-            @click="openNote(rel.noteId)"
-          >
-            <div class="related-item__top">
-              <span class="related-item__title">{{ rel.title }}</span>
-              <span class="related-item__score">{{ Math.round(rel.score * 100) }}%</span>
-              <ChevronRight :size="12" class="related-item__arrow" />
-            </div>
-            <div class="related-item__relation">{{ rel.relation }}</div>
           </button>
         </div>
       </div>
@@ -127,6 +131,52 @@ function openNote(noteId: string): void {
   font-size: var(--fs-xs);
 }
 
+.msg__caret {
+  height: 14px;
+  margin-top: 2px;
+}
+
+.pulse-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-full);
+  background: var(--primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.msg__status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+}
+
+.msg__status--error {
+  color: var(--danger);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.msg__status--cancelled {
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
 .msg__section {
   margin-top: var(--sp-4);
 }
@@ -141,7 +191,7 @@ function openNote(noteId: string): void {
 .source-card {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   width: 100%;
   padding: var(--sp-2) var(--sp-3);
   background: var(--surface-2);
@@ -156,8 +206,17 @@ function openNote(noteId: string): void {
   background: var(--surface-hover);
 }
 
+.source-card__index {
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
 .source-card__icon {
   color: var(--primary);
+  flex-shrink: 0;
 }
 
 .source-card__meta {
@@ -169,6 +228,15 @@ function openNote(noteId: string): void {
   display: block;
   font-size: var(--fs-sm);
   color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-card__path {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -193,57 +261,6 @@ function openNote(noteId: string): void {
   color: var(--primary);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
-
-.msg__related {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  margin-top: var(--sp-2);
-}
-
-.related-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-md);
-  text-align: left;
-  transition: background var(--dur-fast) var(--ease);
-}
-
-.related-item:hover {
-  background: var(--surface-hover);
-}
-
-.related-item__top {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.related-item__title {
-  flex: 1;
-  font-size: var(--fs-sm);
-  color: var(--text-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.related-item__score {
-  font-size: var(--fs-xs);
-  color: var(--primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.related-item__arrow {
-  color: var(--text-3);
-}
-
-.related-item__relation {
-  font-size: var(--fs-xs);
-  color: var(--text-3);
+  flex-shrink: 0;
 }
 </style>

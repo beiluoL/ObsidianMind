@@ -37,6 +37,13 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Milvus 向量库 SDK：与服务端 v2.4.15（infrastructure/milvus）同大版本 -->
+        <dependency>
+            <groupId>io.milvus</groupId>
+            <artifactId>milvus-sdk-java</artifactId>
+            <version>2.4.5</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -49,6 +56,16 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- 把实机验证开关转发进 fork 的测试 JVM（OLLAMA_IT=1 或 -Dollama.it=1 启用 Phase3PipelineVerificationTest） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <ollama.it>${ollama.it}</ollama.it>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

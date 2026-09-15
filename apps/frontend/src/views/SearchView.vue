@@ -2,8 +2,8 @@
 import { onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Search, Loader2, FileText, Sparkles } from 'lucide-vue-next';
-import type { SearchResult } from '@/types/knowledge';
-import { searchService } from '@/services/searchService';
+import type { SearchResult, SemanticSource } from '@/types/knowledge';
+import { searchService, semanticSearchService } from '@/services/searchService';
 import { useKnowledgeStore } from '@/stores/knowledge';
 import { useRouter } from 'vue-router';
 
@@ -13,9 +13,13 @@ const knowledge = useKnowledgeStore();
 
 const query = ref('');
 const scope = ref('vault');
+/** 检索模式：text = 本地全文；semantic = 向量语义检索（POST /api/v1/search/semantic） */
+const mode = ref<'text' | 'semantic'>('text');
 const results = ref<SearchResult[]>([]);
+const sources = ref<SemanticSource[]>([]);
 const loading = ref(false);
 const searched = ref(false);
+const errorMsg = ref('');
 
 /** 摘要高亮：转义 HTML 后用 <mark> 包裹命中词 */
 function highlight(excerpt: string, terms: string[]): string {
@@ -37,12 +41,31 @@ async function doSearch(): Promise<void> {
   searched.value = true;
   if (!q) {
     results.value = [];
+    sources.value = [];
+    errorMsg.value = '';
     return;
   }
   loading.value = true;
-  const currentFolder = knowledge.currentNote?.folder ?? '';
-  results.value = await searchService.search(q, scope.value, currentFolder);
-  loading.value = false;
+  errorMsg.value = '';
+  try {
+    if (mode.value === 'semantic') {
+      // 后端已完成排序/去重/摘要；错误不裸抛给用户，转为界面可读文案（详情进 console）
+      const resp = await semanticSearchService.search(q);
+      sources.value = resp.sources;
+      results.value = [];
+    } else {
+      const currentFolder = knowledge.currentNote?.folder ?? '';
+      results.value = await searchService.search(q, scope.value, currentFolder);
+      sources.value = [];
+    }
+  } catch (e) {
+    console.error('[search] 检索失败', e);
+    errorMsg.value = '知识库检索暂时不可用，请稍后重试';
+    results.value = [];
+    sources.value = [];
+  } finally {
+    loading.value = false;
+  }
 }
 
 function openNote(noteId: string): void {
@@ -62,7 +85,6 @@ watch(
 );
 
 onMounted(() => {
-  // 进入页面自动聚焦搜索框
   const el = document.querySelector<HTMLInputElement>('.search__input');
   el?.focus();
 });
@@ -102,14 +124,52 @@ onMounted(() => {
           >
             {{ s.label }}
           </button>
+          <span class="search__scope-divider" aria-hidden="true"></span>
+          <button
+            v-for="m in [
+              { v: 'text', label: '全文' },
+              { v: 'semantic', label: '语义' },
+            ]"
+            :key="m.v"
+            class="search__scope"
+            :class="{ 'search__scope--active': mode === m.v }"
+            @click="mode = m.v as 'text' | 'semantic'"
+          >
+            {{ m.label }}
+          </button>
         </div>
       </section>
 
-      <!-- 结果区 -->
+      <!-- 结果区：全文模式 -->
       <section v-if="loading" class="search__loading">
         <Loader2 :size="18" class="spin" />
-        <span>AI 正在理解你的问题并检索知识库…</span>
+        <span>{{ mode === 'semantic' ? '正在向量化查询并检索知识库…' : '正在检索知识库…' }}</span>
       </section>
+
+      <section v-else-if="errorMsg" class="search__empty">
+        <div class="search__empty-title">{{ errorMsg }}</div>
+      </section>
+
+      <template v-else-if="mode === 'semantic' && sources.length">
+        <div class="search__best section-label">语义匹配 Sources</div>
+        <button
+          v-for="(s, index) in sources"
+          :key="s.documentId + '#c' + s.chunkIndex"
+          class="result"
+          :class="{ 'result--best': index === 0 }"
+          @click="openNote(s.documentId)"
+        >
+          <div class="result__head">
+            <FileText :size="15" class="result__icon" />
+            <span class="result__title">{{ s.title }}</span>
+            <span v-if="index === 0" class="result__badge"><Sparkles :size="10" /> 最佳</span>
+            <span class="result__score">{{ s.score.toFixed(3) }}</span>
+          </div>
+          <div class="result__path">{{ s.path }}</div>
+          <p v-if="s.heading" class="result__heading">{{ s.heading }}</p>
+          <p class="result__excerpt">{{ s.snippet }}</p>
+        </button>
+      </template>
 
       <template v-else-if="results.length">
         <div class="search__best section-label">最佳匹配</div>
@@ -262,6 +322,13 @@ onMounted(() => {
   background: var(--primary-muted);
 }
 
+.search__scope-divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 var(--sp-1);
+  background: var(--border);
+}
+
 .search__best {
   margin-bottom: var(--sp-3);
 }
@@ -336,31 +403,11 @@ onMounted(() => {
   line-height: 1.65;
 }
 
-.result__excerpt :deep(mark) {
-  background: var(--primary-strong-bg);
-  color: var(--primary);
-  border-radius: 3px;
-  padding: 0 1px;
-}
-
-.result__footer {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
+.result__heading {
   margin-top: var(--sp-2);
-}
-
-.result__tag {
   font-size: var(--fs-xs);
-  color: var(--text-3);
-}
-
-.result__time {
-  margin-left: auto;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  font-weight: 550;
+  color: var(--primary);
 }
 
 .result__excerpt :deep(mark) {

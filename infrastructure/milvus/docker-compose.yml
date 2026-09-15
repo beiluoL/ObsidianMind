@@ -17,6 +17,7 @@ services:
   minio:
     image: minio/minio:RELEASE.2024-05-28T17-19-04Z
     environment:
+      # minioadmin 为 Milvus standalone 官方默认凭据，仅限本机开发环境，禁止暴露公网
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     command: minio server /minio_data

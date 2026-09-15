@@ -1,0 +1,42 @@
+[
+  {
+    "query": "HashMap 扩容",
+    "expectedDocuments": ["Java/HashMap.md"]
+  },
+  {
+    "query": "HashMap 存储结构 红黑树",
+    "expectedDocuments": ["Java/HashMap.md"]
+  },
+  {
+    "query": "ConcurrentHashMap 如何保证线程安全",
+    "expectedDocuments": ["Java/ConcurrentHashMap.md"]
+  },
+  {
+    "query": "JVM 运行时数据区 内存结构",
+    "expectedDocuments": ["JVM/JVM.md"]
+  },
+  {
+    "query": "G1 垃圾回收器 Region",
+    "expectedDocuments": ["JVM/G1.md"]
+  },
+  {
+    "query": "Token 是什么",
+    "expectedDocuments": ["AI/Token.md"]
+  },
+  {
+    "query": "Embedding 向量化 语义",
+    "expectedDocuments": ["AI/Embedding.md"]
+  },
+  {
+    "query": "RAG 检索增强生成 流程",
+    "expectedDocuments": ["AI/RAG.md"]
+  },
+  {
+    "query": "HashMap 和 ConcurrentHashMap 的区别",
+    "expectedDocuments": ["Java/HashMap.md", "Java/ConcurrentHashMap.md"]
+  },
+  {
+    "query": "JVM 堆 垃圾回收",
+    "expectedDocuments": ["JVM/JVM.md", "JVM/G1.md"]
+  }
+]

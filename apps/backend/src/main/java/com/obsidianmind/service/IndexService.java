@@ -1,6 +1,5 @@
 package com.obsidianmind.service;
 
-import com.obsidianmind.repository.VaultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -10,9 +9,9 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 索引服务（Phase 1）：读取 Vault → 解析 metadata → 生成 Chunk（索引任务）。
- * 暂不连接 Milvus、不调用 Embedding——只统计切块结果，为 Phase 2 链路铺路。
- * 状态机：IDLE → SCANNING → INDEXING → READY / FAILED。
+ * 索引任务门面（兼容 Phase 1 异步 API）：包装 {@link KnowledgeIndexService} 的同步管线为异步任务。
+ * 状态机：IDLE → SCANNING → INDEXING → READY / FAILED；重复触发直接忽略。
+ * 新代码请直接使用 POST /api/v1/index/run（同步返回完整结果）。
  */
 @Service
 public class IndexService {
@@ -23,28 +22,19 @@ public class IndexService {
         IDLE, SCANNING, INDEXING, READY, FAILED
     }
 
-    private final VaultRepository vaultRepository;
-    private final com.obsidianmind.service.Chunker chunker;
-    private final com.obsidianmind.parser.MarkdownParser markdownParser;
+    private final KnowledgeIndexService knowledgeIndexService;
 
     private final AtomicReference<Status> status = new AtomicReference<>(Status.IDLE);
-    private volatile int totalNotes;
-    private volatile int indexedNotes;
-    private volatile int chunkCount;
-    private volatile int failedNotes;
+    private volatile KnowledgeIndexService.IndexResult lastResult;
     private volatile Instant lastRunAt;
 
-    public IndexService(VaultRepository vaultRepository, Chunker chunker,
-                        com.obsidianmind.parser.MarkdownParser markdownParser) {
-        this.vaultRepository = vaultRepository;
-        this.chunker = chunker;
-        this.markdownParser = markdownParser;
+    public IndexService(KnowledgeIndexService knowledgeIndexService) {
+        this.knowledgeIndexService = knowledgeIndexService;
     }
 
     /**
-     * 异步索引任务：CAS 抢占状态（仅 IDLE/READY/FAILED 可启动，重复触发直接忽略）
-     * → 全量扫描 → 逐篇 解析+切块（单篇失败计入 failedNotes 不中断）→ READY。
-     * 任意阶段异常最终落到 FAILED，状态与计数器在开始时统一复位。
+     * 异步触发一次完整增量索引；结果缓存供状态查询。
+     * 任意失败（业务异常或整体 503）落到 FAILED，状态在开始时统一复位。
      */
     @Async
     public void startIndexing() {
@@ -55,49 +45,31 @@ public class IndexService {
             return;
         }
         try {
-            log.info("Vault scan started（索引任务）");
-            VaultRepository.ScanResult scan = vaultRepository.scan();
-            totalNotes = scan.markdownFiles();
-            indexedNotes = 0;
-            chunkCount = 0;
-            failedNotes = 0;
             status.set(Status.INDEXING);
-
-            for (var meta : vaultRepository.allNotes()) {
-                try {
-                    String raw = vaultRepository.readRaw(meta.path());
-                    var parsed = markdownParser.parse(raw);
-                    String title = parsed.title() != null ? parsed.title()
-                            : meta.path().substring(meta.path().lastIndexOf('/') + 1).replaceAll("(?i)\\.md$", "");
-                    var chunks = chunker.chunk(meta.path(), title, meta.path(), parsed);
-                    chunkCount += chunks.size();
-                    indexedNotes++;
-                } catch (RuntimeException e) {
-                    failedNotes++;
-                    log.warn("索引单篇失败: {} ({})", meta.path(), e.getMessage());
-                }
-            }
+            lastResult = knowledgeIndexService.run();
             lastRunAt = Instant.now();
             status.set(Status.READY);
-            log.info("索引任务完成: {} 篇笔记, {} 个 Chunk, 失败 {} 篇", indexedNotes, chunkCount, failedNotes);
+            log.info("异步索引任务完成: total={} failed={} chunks={}",
+                    lastResult.total(), lastResult.failed(), lastResult.chunkCount());
         } catch (RuntimeException e) {
             status.set(Status.FAILED);
-            log.error("索引任务失败", e);
+            log.error("异步索引任务失败", e);
         }
     }
 
     public IndexStatusResponse status() {
+        KnowledgeIndexService.IndexResult result = lastResult;
         return new IndexStatusResponse(
                 status.get().name(),
-                totalNotes,
-                indexedNotes,
-                failedNotes,
-                chunkCount,
+                result == null ? 0 : result.total(),
+                result == null ? 0 : result.indexed() + result.updated(),
+                result == null ? 0 : result.failed(),
+                result == null ? 0 : result.chunkCount(),
                 lastRunAt == null ? null : lastRunAt.toString());
     }
 
     /**
-     * 索引状态响应。
+     * 索引状态响应（Phase 1 契约保持不变）。
      */
     public record IndexStatusResponse(
             String status,

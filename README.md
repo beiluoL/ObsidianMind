@@ -81,12 +81,34 @@ docker compose up -d ollama
 | --- | --- | --- |
 | `OBSIDIAN_VAULT_PATH` | 空（API 显式连接） | 默认 Vault 路径 |
 | `OLLAMA_BASE_URL` | http://localhost:11434 | Ollama 地址 |
-| `OLLAMA_CHAT_MODEL` | qwen3 | Chat 模型 |
-| `OLLAMA_EMBEDDING_MODEL` | qwen3-embedding | Embedding 模型 |
+| `OLLAMA_CHAT_MODEL` | qwen3 | Chat 模型（须为本机已安装模型；本机实测用 qwen3.5:9b） |
+| `OLLAMA_EMBEDDING_MODEL` | bge-m3 | Embedding 模型（本机已安装，1024 维；换模型需同步 `MILVUS_VECTOR_DIMENSION` 并清空 Collection） |
+| `AI_CHUNK_SIZE` / `AI_CHUNK_OVERLAP` | 800 / 100 | 切块上限与相邻块重叠（字符） |
+| `AI_EMBEDDING_BATCH_SIZE` | 16 | 单次 Embedding HTTP 请求携带的 Chunk 数 |
+| `AI_EMBEDDING_TIMEOUT_SECONDS` | 30 | Embedding 请求超时（冷启动需宽于健康探测） |
 | `MILVUS_HOST` / `MILVUS_PORT` | localhost / 19530 | Milvus 地址 |
+| `MILVUS_COLLECTION` | obsidianmind_chunks | 向量 Collection 名称（固定，惰性创建） |
+| `MILVUS_VECTOR_DIMENSION` | 1024 | 向量维度（来源：bge-m3 / qwen3-embedding 实测，运行时校验） |
+| `AI_RETRIEVAL_DEFAULT_TOP_K` / `AI_RETRIEVAL_MAX_TOP_K` | 5 / 20 | 语义检索默认召回数 / 上限 |
+| `AI_RAG_MAX_CHUNKS` / `AI_RAG_MAX_CHARS` | 6 / 12000 | 进入 Prompt 的 Context 条目数 / 总字符上限（超限按相似度整体截断） |
+| `AI_RAG_TEMPERATURE` / `AI_RAG_MAX_TOKENS` | 0.1 / 1024 | RAG 生成温度（贴资料取低值）/ 输出 token 上限 |
+| `AI_RAG_THINK` | false | thinking 模型是否先推理再作答（关闭防 token 预算被推理耗尽） |
+| `AI_RAG_LLM_TIMEOUT_SECONDS` / `AI_RAG_STREAM_TIMEOUT_SECONDS` | 120 / 180 | LLM 流式读超时 / SSE 整体生命周期超时 |
 | `CORS_ALLOWED_ORIGINS` | 本地前端来源 | 生产必须显式收敛 |
 
 Frontend 环境变量见 `apps/frontend/.env.example`（`VITE_API_BASE_URL`）。
+
+## Knowledge Index（Phase 3）
+
+一条命令验证索引管线（需后端与 Ollama 已启动）：
+
+```bash
+./scripts/index-demo-vault.sh           # 首次：全量 INDEXED
+./scripts/index-demo-vault.sh --repeat  # 第二次：全部 SKIPPED（增量 hash 对比）
+```
+
+或前端入口：设置 → 索引 → 「立即同步知识库」（返回 indexed / updated / skipped / deleted / failed 计数）。
+设计文档：`docs/architecture/knowledge-pipeline.md`、`embedding.md`、`milvus.md`。
 
 ## Frontend UI / Design System
 
@@ -111,14 +133,12 @@ apps/frontend/src/assets/styles/
 | Phase | 内容 |
 | --- | --- |
 | Phase 1 | 项目基础架构（Monorepo + REST API + Health Check）✅ |
-| Phase 2 | Markdown Parser + Chunking |
-| Phase 3 | Embedding（Ollama Embedding Model） |
-| Phase 4 | Milvus 向量索引 |
-| Phase 5 | RAG（检索增强问答） |
-| Phase 6 | Streaming Chat（SSE） |
-| Phase 7 | Sources / Citation |
-| Phase 8 | Hybrid Search |
-| Phase 9 | Reranker |
-| Phase 10 | Related Notes |
-| Phase 11 | Agent |
-| Phase 12 | MCP |
+| Phase 2 | Markdown Parser + Chunking ✅ |
+| Phase 3 | Embedding（Ollama）+ Milvus 向量索引 + 增量索引 ✅ |
+| Phase 4 | RAG 查询链路（Query → Vector Search → TopK Retrieval → Sources） |
+| Phase 5 | Streaming Chat 正式版（SSE 接真实 RAG） |
+| Phase 6 | Hybrid Search |
+| Phase 7 | Reranker |
+| Phase 8 | Related Notes |
+| Phase 9 | Agent |
+| Phase 10 | MCP |

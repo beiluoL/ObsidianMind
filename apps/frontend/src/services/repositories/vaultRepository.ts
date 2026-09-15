@@ -140,7 +140,7 @@ class VaultRepository {
   }
 
   async connect(handle: FileSystemDirectoryHandle, demo: boolean): Promise<void> {
-    // 验证可读权限
+    // 只拦截明确 denied；prompt 状态放行——后续首次读取时浏览器会自动请求授权
     const perm = await handle.queryPermission?.({ mode: 'readwrite' });
     if (perm === 'denied') throw new VaultPermissionError('目录访问被拒绝');
     this.root = handle;

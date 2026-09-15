@@ -1,126 +1,145 @@
 package com.obsidianmind.service;
 
-import com.obsidianmind.domain.SearchResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.obsidianmind.config.AiProperties;
+import com.obsidianmind.exception.BusinessException;
+import com.obsidianmind.service.RagAnswerService.CitationView;
+import com.obsidianmind.service.RagAnswerService.RagCompletion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 聊天服务（Phase 1）。
- * answer 为 Mock 占位（Phase 2 接入 RetrievalService → LLMService 真实 RAG 链路），
- * 但 relatedNotes 来自真实全文检索——不伪造检索结果。
- * API 结构为未来 RAG 预留：{answer, sources[], relatedNotes[]}。
+ * Chat 服务（Phase 5 RAG）：RagAnswerService 编排 + SSE 事件适配。
+ *
+ * 事件契约（text/event-stream，data 均为 JSON）：
+ *   phase     {"phase":"searching"|"generating"}
+ *   citation  {"index":1,"sourceId":"SRC-1","title":...,"path":...,"heading":...,"snippet":...,"score":...}
+ *   message   {"content":"增量 token"}
+ *   done      {"content":全文,"citedSourceIds":[...],"sources":[...],"metrics":{...},"noContext":false}
+ *   error     {"code":"LLM_UNAVAILABLE","message":"..."}
+ *
+ * 生命周期：SseEmitter 超时 = ai.rag.stream-timeout-seconds（显式设置，不无限挂起）；
+ * 客户端断连（onError / onTimeout / 发送失败）置 cancelled → RagAnswerService 终止编排、
+ * LlmStreamListener 停止拉取上游 Ollama 流（连接关闭后 Ollama 中止生成）。
+ * 事件数据统一经 Jackson 序列化（record → JSON），不手工拼字符串。
  */
 @Service
 public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
-    private static final int RELATED_LIMIT = 3;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private final SearchService searchService;
+    private final RagAnswerService ragAnswerService;
+    private final AiProperties aiProperties;
     private final ExecutorService sseExecutor = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, "chat-sse");
+        Thread thread = new Thread(r, "rag-sse");
         thread.setDaemon(true);
         return thread;
     });
 
-    @Value("${spring.application.name:ObsidianMind}")
-    private String applicationName;
-
-    public ChatService(SearchService searchService) {
-        this.searchService = searchService;
+    public ChatService(RagAnswerService ragAnswerService, AiProperties aiProperties) {
+        this.ragAnswerService = ragAnswerService;
+        this.aiProperties = aiProperties;
     }
 
-    /**
-     * 生成回答（Phase 1 Mock）：answer 为结构占位文本，relatedNotes 取真实全文检索 Top3——
-     * 检索结果是真实的，只有 LLM 生成部分是 Mock（不伪造检索）。
-     *
-     * @param message 用户问题（同时作为全文检索的 query）
-     * @param scope   检索范围（Phase 1 仅记录日志，未启用范围过滤）
-     * @return answer + sources（恒为空，RAG 接入后填充）+ relatedNotes
-     */
-    public ChatAnswer answer(String message, String scope) {
-        log.info("Chat 请求: scope={}, message 长度={}", scope, message.length());
-        List<SearchResult> related = searchService.search(message);
-        String relatedNotesText = related.stream()
-                .limit(RELATED_LIMIT)
-                .map(r -> "「" + r.title() + "」")
-                .reduce((a, b) -> a + "、" + b)
-                .orElse("");
-        String answer = """
-                【%s Phase 1 · Mock 回答】
-
-                已收到你的问题：「%s」。
-
-                当前阶段（Phase 1）Chat 为结构预留 + Mock 回答，LLM 生成链路将在 Phase 2 接入：
-                问题 → 向量/全文混合检索 → 上下文拼装 → Ollama 生成 → SSE 流式返回。
-
-                %s
-                """.formatted(
-                applicationName,
-                message,
-                relatedNotesText.isEmpty()
-                        ? "全文检索未在你的 Vault 中找到与该问题直接相关的笔记。"
-                        : "全文检索在你的 Vault 中找到相关笔记：" + relatedNotesText + "（见下方 relatedNotes）。");
-        return new ChatAnswer(answer, List.of(), related.stream().limit(RELATED_LIMIT).toList());
+    /** 同步问答：与流式共用同一编排（POST /api/v1/chat）。 */
+    public RagAnswerService.RagAnswer answer(String message, Integer topK) {
+        return ragAnswerService.answerSync(message, topK);
     }
 
-    /** SSE 流式输出：先发 phase 事件，再按 token 流式发 message，最后发 done。 */
-    public SseEmitter stream(String message, String scope) {
-        SseEmitter emitter = new SseEmitter(60_000L);
+    /** SSE 流式问答（POST /api/v1/chat/stream）。 */
+    public SseEmitter stream(String message, Integer topK) {
+        long timeoutMs = aiProperties.ragOrDefault().streamTimeoutSeconds() * 1000L;
+        SseEmitter emitter = new SseEmitter(timeoutMs);
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        emitter.onTimeout(() -> {
+            cancelled.set(true);
+            log.info("SSE 超时终止（{}ms）", timeoutMs);
+        });
+        emitter.onError(e -> {
+            cancelled.set(true);
+            log.info("SSE 连接错误（客户端断连）: {}", e.getMessage());
+        });
+
         sseExecutor.execute(() -> {
+            SseEventSink sink = new SseEventSink(emitter, cancelled);
             try {
-                emitter.send(SseEmitter.event().name("phase").data("{\"phase\":\"searching\"}"));
-                ChatAnswer chatAnswer = answer(message, scope);
-                emitter.send(SseEmitter.event().name("phase").data("{\"phase\":\"generating\"}"));
-
-                for (String token : chatAnswer.answer().split("(?<=\\n)|(?<=。)|(?<=\\s)")) {
-                    emitter.send(SseEmitter.event().name("message").data(token));
-                    Thread.sleep(30);
-                }
-
-                emitter.send(SseEmitter.event().name("done").data(toJson(chatAnswer)));
+                ragAnswerService.run(message, topK, sink);
                 emitter.complete();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                emitter.completeWithError(e);
-            } catch (IOException e) {
-                emitter.completeWithError(e);
+            } catch (BusinessException e) {
+                sink.onError(e.getCode(), e.getMessage());
+                emitter.complete();
+            } catch (RuntimeException e) {
+                log.error("RAG 流式编排未预期失败", e);
+                sink.onError("INTERNAL_ERROR", "服务内部错误");
+                emitter.complete();
             }
         });
         return emitter;
     }
 
-    /** 手工拼接 done 事件的 JSON（仅转义反斜杠与双引号；relatedNotes 数量有限且字段受控）。 */
-    private String toJson(ChatAnswer chatAnswer) {
-        StringBuilder related = new StringBuilder("[");
-        for (int i = 0; i < chatAnswer.relatedNotes().size(); i++) {
-            SearchResult note = chatAnswer.relatedNotes().get(i);
-            if (i > 0) {
-                related.append(",");
-            }
-            related.append("{\"noteId\":\"").append(escape(note.noteId()))
-                    .append("\",\"title\":\"").append(escape(note.title()))
-                    .append("\",\"score\":").append(note.score()).append("}");
+    /** RagEventSink → SseEmitter 适配：发送失败即置 cancelled（连接已死，停止一切后续事件与上游 LLM 拉流）。 */
+    private final class SseEventSink implements RagAnswerService.RagEventSink {
+
+        private final SseEmitter emitter;
+        private final AtomicBoolean cancelled;
+
+        private SseEventSink(SseEmitter emitter, AtomicBoolean cancelled) {
+            this.emitter = emitter;
+            this.cancelled = cancelled;
         }
-        related.append("]");
-        return "{\"answer\":\"\",\"sources\":[],\"relatedNotes\":" + related + "}";
-    }
 
-    private String escape(String raw) {
-        return raw.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
+        @Override
+        public void onPhase(String phase) {
+            send("phase", OBJECT_MAPPER.createObjectNode().put("phase", phase));
+        }
 
-    /**
-     * 聊天回答：answer + sources + relatedNotes（未来 RAG 契约）。
-     */
-    public record ChatAnswer(String answer, List<SearchResult> sources, List<SearchResult> relatedNotes) {
+        @Override
+        public void onCitation(ContextAssembler.ContextItem item, int index) {
+            // CitationView 形状与 done.sources 完全一致：前端只解析一种 Source 结构
+            send("citation", CitationView.of(item, aiProperties.retrievalOrDefault().snippetLength()));
+        }
+
+        @Override
+        public void onToken(String token) {
+            send("message", OBJECT_MAPPER.createObjectNode().put("content", token));
+        }
+
+        @Override
+        public void onComplete(RagCompletion completion) {
+            send("done", completion);
+        }
+
+        @Override
+        public void onError(String code, String message) {
+            var node = OBJECT_MAPPER.createObjectNode();
+            node.put("code", code);
+            node.put("message", message);
+            send("error", node);
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled.get();
+        }
+
+        private void send(String eventName, Object payload) {
+            if (cancelled.get()) {
+                return;
+            }
+            try {
+                emitter.send(SseEmitter.event().name(eventName).data(payload));
+            } catch (IOException e) {
+                cancelled.set(true);
+                log.info("SSE 发送失败，标记断连: {}", e.getMessage());
+            }
+        }
     }
 }

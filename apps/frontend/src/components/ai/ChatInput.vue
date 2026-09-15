@@ -3,7 +3,7 @@
  * AI 输入框：多行输入、Enter 发送（Shift+Enter 换行）、发送/停止状态切换。
  */
 import { useChatStore } from '@/stores/chat';
-import { Paperclip, Brain, SendHorizontal, Loader2 } from 'lucide-vue-next';
+import { Paperclip, Brain, SendHorizontal, Square } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const chat = useChatStore();
@@ -69,13 +69,21 @@ function onKeydown(event: KeyboardEvent): void {
       </button>
       <div class="chat-input__spacer"></div>
       <button
+        v-if="chat.isThinking()"
+        class="chat-input__send chat-input__send--stop"
+        title="停止生成"
+        @click="chat.stop()"
+      >
+        <Square :size="12" />
+      </button>
+      <button
+        v-else
         class="chat-input__send"
-        :disabled="!draft.trim() || chat.isThinking()"
+        :disabled="!draft.trim()"
         title="发送"
         @click="send"
       >
-        <Loader2 v-if="chat.isThinking()" :size="15" class="spin" />
-        <SendHorizontal v-else :size="15" />
+        <SendHorizontal :size="15" />
       </button>
     </div>
   </div>
@@ -162,6 +170,17 @@ function onKeydown(event: KeyboardEvent): void {
 .chat-input__send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.chat-input__send--stop {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--border-strong);
+}
+
+.chat-input__send--stop:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .scope-menu {
