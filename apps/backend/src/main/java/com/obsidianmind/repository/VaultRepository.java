@@ -36,6 +36,10 @@ public class VaultRepository {
 
     private static final Logger log = LoggerFactory.getLogger(VaultRepository.class);
 
+    /** 扫描时跳过的缓存/构建类目录（小写比较）；`.` 开头隐藏目录（.obsidian 等）另在遍历中单独跳过 */
+    private static final java.util.Set<String> IGNORED_DIRS =
+            java.util.Set.of("node_modules", "cache", "temp", "build", "dist", "target");
+
     private volatile Path root;
     private final Map<String, FileMeta> files = new ConcurrentHashMap<>();
     private volatile int folderCount;
@@ -116,7 +120,7 @@ public class VaultRepository {
                 public java.nio.file.FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     if (!dir.equals(vaultRoot)) {
                         String name = dir.getFileName() == null ? "" : dir.getFileName().toString();
-                        if (name.startsWith(".")) {
+                        if (name.startsWith(".") || IGNORED_DIRS.contains(name.toLowerCase())) {
                             return java.nio.file.FileVisitResult.SKIP_SUBTREE;
                         }
                         folderCount++;

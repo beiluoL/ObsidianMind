@@ -79,4 +79,40 @@ class MarkdownParserTest {
         assertTrue(parsed.tags().isEmpty());
         assertEquals("纯文本", parsed.title());
     }
+
+    @Test
+    void shouldHandleEmptyFile() {
+        ParsedMarkdown parsed = parser.parse("");
+        assertTrue(parsed.frontmatter().isEmpty());
+        assertTrue(parsed.tags().isEmpty());
+        assertTrue(parsed.wikiLinks().isEmpty());
+        assertNull(parsed.title());
+        assertEquals("", parsed.body());
+    }
+
+    @Test
+    void shouldHandleOversizedFile() {
+        // 约 2MB 的重复正文：解析必须可完成且不抛异常
+        String paragraph = "这是性能测试段落，包含 #perf 标签与 [[Embedding]] 链接。\n\n";
+        String raw = "# 大文件\n" + paragraph.repeat(40_000);
+        ParsedMarkdown parsed = parser.parse(raw);
+        assertEquals("大文件", parsed.title());
+        assertTrue(parsed.tags().contains("perf"));
+        assertEquals(List.of("Embedding"), parsed.wikiLinks());
+    }
+
+    @Test
+    void shouldTolerateMalformedFrontmatter() {
+        // 未闭合的 --- 分隔符：按无 frontmatter 处理，正文保持原文，不抛异常
+        String unclosed = "---\ntitle: 未闭合\n\n# 正文\n内容";
+        ParsedMarkdown parsed = parser.parse(unclosed);
+        assertTrue(parsed.frontmatter().isEmpty());
+        assertTrue(parsed.body().contains("title: 未闭合"));
+
+        // YAML 语法非法：同样按无 frontmatter 处理
+        String invalidYaml = "---\ntitle: [未闭合的列表\n---\n\n正文";
+        ParsedMarkdown invalid = parser.parse(invalidYaml);
+        assertTrue(invalid.frontmatter().isEmpty());
+        assertEquals("正文", invalid.body().trim());
+    }
 }
