@@ -40,17 +40,21 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 /**
  * 发起 RAG 流式问答。resolve 时表示流已正常走完（done 或 error 事件均已回调）。
  * fetch 抛出 AbortError 表示用户主动停止（调用方据此区分 cancelled 与 error）。
+ *
+ * modelId（Phase 5.5）：可选模型 ID；null/undefined = 后端默认模型（Model Center 默认 → legacy Ollama）。
+ * 安全边界：客户端只能传 modelId，凭据由后端解析。
  */
 export async function streamRagAnswer(
   query: string,
   topK: number | undefined,
   callbacks: RagStreamCallbacks,
   signal: AbortSignal,
+  modelId?: string | null,
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ message: query, topK }),
+    body: JSON.stringify({ message: query, topK, modelId: modelId ?? undefined }),
     signal,
   });
 

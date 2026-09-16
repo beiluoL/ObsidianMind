@@ -56,6 +56,7 @@ watch(
         <span>AI 助手</span>
       </div>
       <div class="chat-panel__tabs">
+        <ModelSelector />
         <button
           v-for="tab in tabs"
           :key="tab.key"

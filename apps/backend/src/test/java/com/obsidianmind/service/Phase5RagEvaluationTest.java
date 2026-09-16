@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obsidianmind.config.AiProperties;
 import com.obsidianmind.config.MilvusProperties;
+import com.obsidianmind.config.ModelCenterProperties;
+import com.obsidianmind.modelcenter.CredentialResolver;
+import com.obsidianmind.modelcenter.ModelCenterStorage;
+import com.obsidianmind.modelcenter.ModelRouter;
 import com.obsidianmind.parser.FrontmatterParser;
 import com.obsidianmind.parser.MarkdownParser;
 import com.obsidianmind.parser.WikiLinkParser;
@@ -17,6 +21,7 @@ import com.obsidianmind.util.CitationParser;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,6 +67,9 @@ class Phase5RagEvaluationTest {
     private RagAnswerService ragAnswerService;
     private InMemoryVectorStore vectorStore;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
     void setUp() throws Exception {
         Assumptions.assumeTrue(enabled(), "-Dollama.it=1 未设置，跳过 RAG 评估（需真实 Ollama）");
@@ -90,8 +98,12 @@ class Phase5RagEvaluationTest {
         Assumptions.assumeTrue(indexed.failed() == 0, "索引存在失败，无法评估: " + indexed.errors());
         retrievalService = new RetrievalService(vaultRepository, new OllamaEmbeddingService(ai),
                 vectorStore, new MilvusProperties("localhost", 19530, 2, COLLECTION, 1024), ai);
+        // 空配置存储（临时目录）→ ModelRouter 走 legacy Ollama 路径，与 Phase 5 行为一致
+        ModelCenterStorage storage = new ModelCenterStorage(new ModelCenterProperties(tempDir.toString()), ai);
+        ModelRouter router = new ModelRouter(storage, new CredentialResolver(storage),
+                new OllamaLLMService(ai), ai);
         ragAnswerService = new RagAnswerService(retrievalService, new ContextAssembler(ai),
-                new RagPromptBuilder(), new OllamaLLMService(ai), ai);
+                new RagPromptBuilder(), router, ai);
     }
 
     /** 系统属性 -Dollama.it=1（由 surefire 转发）或环境变量 OLLAMA_IT=1 任一启用即可。 */
@@ -112,7 +124,7 @@ class Phase5RagEvaluationTest {
     private Collected runQuery(String query) {
         Collected collected = Collected.create();
         final RagAnswerService.RagCompletion[] done = {null};
-        ragAnswerService.run(query, null, new RagAnswerService.RagEventSink() {
+        ragAnswerService.run(query, null, null, new RagAnswerService.RagEventSink() {
             @Override
             public void onPhase(String phase) {
             }

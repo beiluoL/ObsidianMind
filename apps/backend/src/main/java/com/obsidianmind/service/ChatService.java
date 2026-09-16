@@ -50,12 +50,12 @@ public class ChatService {
     }
 
     /** 同步问答：与流式共用同一编排（POST /api/v1/chat）。 */
-    public RagAnswerService.RagAnswer answer(String message, Integer topK) {
-        return ragAnswerService.answerSync(message, topK);
+    public RagAnswerService.RagAnswer answer(String message, Integer topK, String modelId) {
+        return ragAnswerService.answerSync(message, topK, modelId);
     }
 
     /** SSE 流式问答（POST /api/v1/chat/stream）。 */
-    public SseEmitter stream(String message, Integer topK) {
+    public SseEmitter stream(String message, Integer topK, String modelId) {
         long timeoutMs = aiProperties.ragOrDefault().streamTimeoutSeconds() * 1000L;
         SseEmitter emitter = new SseEmitter(timeoutMs);
         AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -71,7 +71,7 @@ public class ChatService {
         sseExecutor.execute(() -> {
             SseEventSink sink = new SseEventSink(emitter, cancelled);
             try {
-                ragAnswerService.run(message, topK, sink);
+                ragAnswerService.run(message, topK, modelId, sink);
                 emitter.complete();
             } catch (BusinessException e) {
                 sink.onError(e.getCode(), e.getMessage());

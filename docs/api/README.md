@@ -22,5 +22,16 @@
 | POST | `/api/v1/index` | 触发索引任务（Phase 1 兼容，异步，配 GET /status 轮询） |
 | POST | `/api/v1/chat` | **RAG 问答（同步）**：完整回答 + Sources + 指标，请求 `{message, topK?}`，返回 `{content, citedSourceIds, sources[{index,sourceId,title,path,heading,snippet,score}], metrics, noContext}` |
 | POST | `/api/v1/chat/stream` | **RAG 问答（SSE 流式）**：phase / citation / message / done / error 事件（data 均为 JSON），见 docs/architecture/rag-chat-pipeline.md §3 |
+| GET | `/api/v1/ai/providers` | **Model Center**：Provider 列表（apiKeyMasked / credentialSource，绝无 Key 原文） |
+| POST | `/api/v1/ai/providers` | 新增 Provider（name/type/baseUrl/apiKey） |
+| PUT | `/api/v1/ai/providers/{id}` | 更新 Provider（apiKey 留空 = 保留原 Key） |
+| DELETE | `/api/v1/ai/providers/{id}` | 删除 Provider（级联删模型与凭据） |
+| POST | `/api/v1/ai/providers/{id}/test` | 测试连接（success/latency/语义化错误码，safe message） |
+| GET | `/api/v1/ai/providers/{id}/models` | 真实可用模型（当前仅 Ollama /api/tags） |
+| GET | `/api/v1/ai/models` | Model 列表 |
+| POST | `/api/v1/ai/models` | 新增 Model（providerId/modelName/capabilities） |
+| PUT | `/api/v1/ai/models/{id}` | 更新 Model |
+| DELETE | `/api/v1/ai/models/{id}` | 删除 Model |
+| POST | `/api/v1/ai/models/{id}/default` | 设为默认对话模型 |
 
 完整请求/响应结构以 Swagger UI 为准；后续 Phase 新增端点（embedding / rag / chat 正式版）将在此文档持续补充。

@@ -78,3 +78,8 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# Model Center（Phase 5.5）：Provider / Model 配置持久化目录。
+# 配置文件（model-center.json）与凭据（credentials.json + 独立密钥）都在此目录，敏感文件权限 600。
+model-center:
+  storage-dir: ${MODEL_CENTER_STORAGE_DIR:${user.home}/.obsidianmind}

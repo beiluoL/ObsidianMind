@@ -6,6 +6,8 @@ import com.obsidianmind.exception.LlmTimeoutException;
 import com.obsidianmind.exception.LlmUnavailableException;
 import com.obsidianmind.exception.OllamaUnavailableException;
 import com.obsidianmind.exception.RagPipelineException;
+import com.obsidianmind.modelcenter.ChatModelAdapter;
+import com.obsidianmind.modelcenter.ModelRouter;
 import com.obsidianmind.service.LLMService.LlmStreamListener;
 import com.obsidianmind.util.CitationParser;
 import org.slf4j.Logger;
@@ -44,18 +46,18 @@ public class RagAnswerService {
     private final RetrievalService retrievalService;
     private final ContextAssembler contextAssembler;
     private final RagPromptBuilder promptBuilder;
-    private final LLMService llmService;
+    private final ModelRouter modelRouter;
     private final AiProperties aiProperties;
 
     public RagAnswerService(RetrievalService retrievalService,
                             ContextAssembler contextAssembler,
                             RagPromptBuilder promptBuilder,
-                            LLMService llmService,
+                            ModelRouter modelRouter,
                             AiProperties aiProperties) {
         this.retrievalService = retrievalService;
         this.contextAssembler = contextAssembler;
         this.promptBuilder = promptBuilder;
-        this.llmService = llmService;
+        this.modelRouter = modelRouter;
         this.aiProperties = aiProperties;
     }
 
@@ -66,7 +68,7 @@ public class RagAnswerService {
      * @throws BusinessException 语义化错误码（INVALID_REQUEST / OLLAMA_UNAVAILABLE / MILVUS_UNAVAILABLE /
      *                         VECTOR_STORE_ERROR / CONTEXT_BUILD_ERROR / LLM_UNAVAILABLE / LLM_TIMEOUT / LLM_STREAM_ERROR）
      */
-    public void run(String rawQuery, Integer requestedTopK, RagEventSink sink) {
+    public void run(String rawQuery, Integer requestedTopK, String modelId, RagEventSink sink) {
         long startedAt = System.currentTimeMillis();
 
         // ① 检索（异常原样传播，code 已语义化）
@@ -118,28 +120,35 @@ public class RagAnswerService {
             sink.onCitation(context.items().get(i), i + 1);
         }
 
-        // ⑤ Prompt 组装 + LLM 流式生成
+        // ⑤ 模型路由（modelId null = Model Center 默认模型 / legacy Ollama）+ Prompt 组装 + LLM 流式生成
         sink.onPhase("generating");
+        ModelRouter.ResolvedModel resolvedModel = modelRouter.resolve(modelId);
+        AiProperties.Rag ragCfgGen = aiProperties.ragOrDefault();
+        ChatModelAdapter.ChatOptions options = new ChatModelAdapter.ChatOptions(
+                ragCfgGen.temperature(), ragCfgGen.maxTokens(), ragCfgGen.think());
+        log.info("RAG 使用模型: provider={} model={}", resolvedModel.providerName(), resolvedModel.modelName());
         RagPromptBuilder.Prompt prompt = promptBuilder.build(context);
         StringBuilder content = new StringBuilder();
         long[] firstTokenAt = {-1};
         try {
-            llmService.streamComplete(prompt.systemPrompt(), prompt.userMessage(), new LlmStreamListener() {
-                @Override
-                public void onToken(String token) {
-                    if (firstTokenAt[0] < 0) {
-                        firstTokenAt[0] = System.currentTimeMillis();
-                    }
-                    content.append(token);
-                    sink.onToken(token);
-                }
+            resolvedModel.adapter().streamComplete(prompt.systemPrompt(), prompt.userMessage(), options,
+                    new LlmStreamListener() {
+                        @Override
+                        public void onToken(String token) {
+                            if (firstTokenAt[0] < 0) {
+                                firstTokenAt[0] = System.currentTimeMillis();
+                            }
+                            content.append(token);
+                            sink.onToken(token);
+                        }
 
-                @Override
-                public boolean isCancelled() {
-                    return sink.isCancelled();
-                }
-            });
-        } catch (OllamaUnavailableException e) {
+                        @Override
+                        public boolean isCancelled() {
+                            return sink.isCancelled();
+                        }
+                    });
+        } catch (OllamaUnavailableException | LlmUnavailableException e) {
+            // 两类适配器的统一不可用语义（消息已由适配层消毒，不含凭据）
             throw new LlmUnavailableException("LLM 不可用: " + e.getMessage());
         } catch (LlmTimeoutException e) {
             throw e;
@@ -173,12 +182,12 @@ public class RagAnswerService {
      * 同步回答（非流式端点复用同一编排）：收集 sink 结果；BusinessException 原样抛出由
      * GlobalExceptionHandler 映射 HTTP 状态。
      */
-    public RagAnswer answerSync(String rawQuery, Integer requestedTopK) {
+    public RagAnswer answerSync(String rawQuery, Integer requestedTopK, String modelId) {
         StringBuilder content = new StringBuilder();
         List<CitationView>[] citationsHolder = new List[]{List.of()};
         CitationParser.Result[] citedHolder = new CitationParser.Result[]{CitationParser.Result.empty()};
-        RagCompletion[] completionHolder = new RagCompletion[null == null ? 1 : 1];
-        run(rawQuery, requestedTopK, new RagEventSink() {
+        RagCompletion[] completionHolder = new RagCompletion[1];
+        run(rawQuery, requestedTopK, modelId, new RagEventSink() {
             @Override
             public void onPhase(String phase) {
                 // 同步模式不关心阶段

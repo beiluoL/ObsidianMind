@@ -94,6 +94,7 @@ docker compose up -d ollama
 | `AI_RAG_TEMPERATURE` / `AI_RAG_MAX_TOKENS` | 0.1 / 1024 | RAG 生成温度（贴资料取低值）/ 输出 token 上限 |
 | `AI_RAG_THINK` | false | thinking 模型是否先推理再作答（关闭防 token 预算被推理耗尽） |
 | `AI_RAG_LLM_TIMEOUT_SECONDS` / `AI_RAG_STREAM_TIMEOUT_SECONDS` | 120 / 180 | LLM 流式读超时 / SSE 整体生命周期超时 |
+| `MODEL_CENTER_STORAGE_DIR` | ~/.obsidianmind | Model Center 配置与加密凭据存储目录（Provider/Model 配置 + AES-GCM 凭据 + 独立密钥） |
 | `CORS_ALLOWED_ORIGINS` | 本地前端来源 | 生产必须显式收敛 |
 
 Frontend 环境变量见 `apps/frontend/.env.example`（`VITE_API_BASE_URL`）。

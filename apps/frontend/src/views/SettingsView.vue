@@ -79,31 +79,9 @@ onMounted(async () => {
 
     <!-- 右侧内容 -->
     <div class="settings__content" v-if="settings">
-      <!-- AI 模型 -->
-      <section v-if="active === 'model'" class="settings__section">
-        <h2>LLM Provider</h2>
-        <div class="field">
-          <label class="field__label">Provider</label>
-          <div class="field__static">
-            <span class="status-dot status-dot--ok"></span>
-            {{ settings.llmProvider }}
-            <span class="field__badge"><Check :size="11" /> Connected</span>
-          </div>
-        </div>
-        <div class="field">
-          <label class="field__label">模型</label>
-          <div class="field__options">
-            <button
-              v-for="m in ['Qwen3', 'Llama 3', 'DeepSeek']"
-              :key="m"
-              class="field__option"
-              :class="{ 'field__option--active': settings.llmModel === m }"
-              @click="settings.llmModel = m"
-            >
-              {{ m }}
-            </button>
-          </div>
-        </div>
+      <!-- AI 模型（Phase 5.5 Model Center） -->
+      <section v-if="active === 'model'" class="settings__section settings__section--wide">
+        <ModelCenter />
       </section>
 
       <!-- Embedding -->
@@ -332,6 +310,10 @@ onMounted(async () => {
 
 .settings__section {
   max-width: 560px;
+}
+
+.settings__section--wide {
+  max-width: 760px;
 }
 
 .settings__section h2 {

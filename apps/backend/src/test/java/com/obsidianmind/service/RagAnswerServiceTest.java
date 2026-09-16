@@ -1,14 +1,20 @@
 package com.obsidianmind.service;
 
 import com.obsidianmind.config.AiProperties;
+import com.obsidianmind.config.ModelCenterProperties;
 import com.obsidianmind.exception.BusinessException;
 import com.obsidianmind.exception.OllamaUnavailableException;
+import com.obsidianmind.modelcenter.CredentialResolver;
+import com.obsidianmind.modelcenter.ModelCenterStorage;
+import com.obsidianmind.modelcenter.ModelRouter;
 import com.obsidianmind.service.LLMService.LlmStreamListener;
 import com.obsidianmind.service.RagAnswerService.RagCompletion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,14 +81,18 @@ class RagAnswerServiceTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp(@TempDir Path tempDir) {
         retrievalService = mock(RetrievalService.class);
         llmService = mock(LLMService.class);
         AiProperties ai = new AiProperties("ollama", null, null, null,
                 new AiProperties.Retrieval(5, 20, 0, 2, 200, 512),
                 new AiProperties.Rag(6, 12000, 0.1, 1024, false, 120, 180));
+        // 空配置存储（临时目录）→ ModelRouter 解析为 legacy Ollama 路径，委托给 mock 的 LLMService
+        ModelCenterStorage storage = new ModelCenterStorage(
+                new ModelCenterProperties(tempDir.toString()), ai);
+        ModelRouter router = new ModelRouter(storage, new CredentialResolver(storage), llmService, ai);
         service = new RagAnswerService(retrievalService, new ContextAssembler(ai),
-                new RagPromptBuilder(), llmService, ai);
+                new RagPromptBuilder(), router, ai);
         sink = new RecordingSink();
     }
 
@@ -103,7 +113,7 @@ class RagAnswerServiceTest {
             return null;
         }).when(llmService).streamComplete(anyString(), anyString(), any());
 
-        service.run("HashMap 为什么需要 resize？", null, sink);
+        service.run("HashMap 为什么需要 resize？", null, null, sink);
 
         // 顺序契约：phase(searching) → citation* → phase(generating) → message* → done
         assertThat(sink.events).startsWith("phase:searching", "citation:SRC-1", "phase:generating");
@@ -121,7 +131,7 @@ class RagAnswerServiceTest {
         when(retrievalService.retrieveForRag(anyString(), any()))
                 .thenReturn(new RetrievalService.RagRetrievalResult("q", List.of(), 8));
 
-        service.run("知识库里没有的问题", null, sink);
+        service.run("知识库里没有的问题", null, null, sink);
 
         assertThat(sink.completion.noContext()).isTrue();
         assertThat(sink.completion.content()).contains("知识库中没有找到");
@@ -137,7 +147,7 @@ class RagAnswerServiceTest {
         Mockito.doThrow(new OllamaUnavailableException("connection refused"))
                 .when(llmService).streamComplete(anyString(), anyString(), any());
 
-        assertThatThrownBy(() -> service.run("q", null, sink))
+        assertThatThrownBy(() -> service.run("q", null, null, sink))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "LLM_UNAVAILABLE");
         // 错误不产生 done；citation 已发但无终态
@@ -156,7 +166,7 @@ class RagAnswerServiceTest {
             return null;
         }).when(llmService).streamComplete(anyString(), anyString(), any());
 
-        service.run("q", null, sink);
+        service.run("q", null, null, sink);
 
         assertThat(sink.events).doesNotContain("done"); // 断连后不发终态
         assertThat(sink.completion).isNull();
@@ -173,7 +183,7 @@ class RagAnswerServiceTest {
         when(retrievalService.retrieveForRag(anyString(), anyInt()))
                 .thenReturn(new RetrievalService.RagRetrievalResult("q", many, 20));
 
-        service.run("q", 20, sink);
+        service.run("q", 20, null, sink);
 
         assertThat(sink.completion.sources()).hasSize(6);
         assertThat(sink.completion.metrics().contextChunks()).isEqualTo(6);

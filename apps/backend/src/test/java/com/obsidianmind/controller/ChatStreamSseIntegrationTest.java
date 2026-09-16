@@ -46,7 +46,7 @@ class ChatStreamSseIntegrationTest {
     @Test
     void shouldEmitSseEventsInContractOrder() throws Exception {
         doAnswer(inv -> {
-            RagAnswerService.RagEventSink sink = inv.getArgument(2);
+            RagAnswerService.RagEventSink sink = inv.getArgument(3);
             sink.onPhase("searching");
             sink.onCitation(new ContextAssembler.ContextItem(
                     "SRC-1", "HashMap", "Java/HashMap.md", "# 扩容机制", "完整内容", "doc-1", 0, 0.9), 1);
@@ -58,7 +58,7 @@ class ChatStreamSseIntegrationTest {
                             "完整内容", 0.9)),
                     new RagMetrics(10, 1, 20, 500, 600, 1, 4, 900, false), false));
             return null;
-        }).when(ragAnswerService).run(anyString(), any(), any());
+        }).when(ragAnswerService).run(anyString(), any(), any(), any());
 
         MvcResult result = mockMvc.perform(post("/api/v1/chat/stream")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -79,7 +79,7 @@ class ChatStreamSseIntegrationTest {
     @Test
     void shouldEmitErrorEventWhenOrchestrationFails() throws Exception {
         doThrow(new com.obsidianmind.exception.LlmUnavailableException("LLM 不可用"))
-                .when(ragAnswerService).run(anyString(), any(), any());
+                .when(ragAnswerService).run(anyString(), any(), any(), any());
 
         MvcResult result = mockMvc.perform(post("/api/v1/chat/stream")
                         .contentType(MediaType.APPLICATION_JSON)

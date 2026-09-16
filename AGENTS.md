@@ -29,9 +29,12 @@ Backend API（apps/backend，/api/v1/**，springdoc Swagger）
    ├── RetrievalService             → 语义检索编排（Query→Embedding→Vector Search→过滤/去重→Sources）
    ├── MarkdownParser / Chunker v2  → 结构化解析 / 切块（headingPath、offset、代码块/表格保护）
    ├── EmbeddingService / LLMService（接口）→ OllamaEmbeddingService（批量 /api/embed）
+   ├── ModelCenter（Phase 5.5）      → ModelCenterService / ModelRouter / ChatModelAdapter
+   │                                   （Provider·Model 分离，CredentialStore AES-GCM 加密，
+   │                                    CredentialResolver：用户配置 > 环境变量 > NONE）
    ├── KnowledgeIndexService        → 增量索引编排（INDEXED/UPDATED/SKIPPED/DELETED/FAILED）
    ├── VectorRepository（接口）      → MilvusVectorStore（Milvus SDK 2.4.5，HNSW/COSINE，vaultId 边界过滤）/ 健康探测
-   └── RagAnswerService             → RAG 编排（Retrieval → ContextAssembler → RagPromptBuilder → LLM 流）
+   └── RagAnswerService             → RAG 编排（Retrieval → ContextAssembler → RagPromptBuilder → ModelRouter → LLM 流）
          ChatService                 → SSE 适配（phase/citation/message/done/error；断连取消 Ollama 上游流）
            ▼ Citation = 系统 Source Registry（SRC-n），模型只复述编号不生成路径
 ```
@@ -126,8 +129,9 @@ UNDERSTAND（读代码 / 读 Skill）→ PLAN → IMPLEMENT → TEST → REVIEW(
 - Phase 3 完成：知识索引管线（Markdown → Chunk → Embedding → Milvus）+ 增量索引 + `POST /api/v1/index/run`。
 - Phase 4 完成：语义检索（`POST /api/v1/search/semantic`）+ Source 映射 + vaultId 检索边界 + 评估集（Recall@5=1.0，10 条查询）。
 - Phase 5 完成：RAG Chat（`POST /api/v1/chat` + `/chat/stream`）——Retrieval → ContextAssembler（max-chunks/max-chars 上限）→ RagPromptBuilder（防注入）→ Ollama 流式生成 → SSE（phase/citation/message/done/error）→ Citation（系统 Source Registry + CitationParser 校验）→ 前端 Chat 流式渲染 + 停止生成 + DOMPurify 消毒。评估：`-Dtest=Phase5RagEvaluationTest -Dollama.it=1`。
-- 后端测试基线：`mvn test` 107 个（105 执行 + 2 条件跳过）；RAG 评估需 `-Dollama.it=1`。
-- 未实现：多轮会话 / Reranker / Hybrid Search（Phase 6 方向）、heading 锚点跳转、Milvus 实机 IT。
+- Phase 5.5 完成：AI Model Center——Provider（OLLAMA/DEEPSEEK/DASHSCOPE/OPENAI_COMPATIBLE）+ Model 配置、AES-GCM 加密凭据存储、环境变量回退（按类型隔离）、ModelRouter（默认模型 + legacy Ollama 回退 + 缓存失效）、测试连接（safe result）、前端 Model Center UI + Chat 模型选择器。Chat API 新增可选 `modelId`。架构见 `docs/architecture/model-provider-architecture.md`。
+- 后端测试基线：`mvn test` 123 个（119 执行 + 4 条件跳过）；RAG 评估 `-Dollama.it=1`；真实 Provider IT `-Dtest=Phase55ProviderIT -Dprovider.it=1`。
+- 未实现：多轮会话 / Reranker / Hybrid Search（Phase 6 方向）、heading 锚点跳转、Milvus 实机 IT、OS Keychain（当前为加密文件 CredentialStore）。
 - 前端无 lint 配置、无单元测试框架（已知缺口，见 `docs/engineering/ENGINEERING_AUDIT_V1.md`）。
 
 > 本节由维护者更新；Agent 改动架构或补齐缺口后应同步。

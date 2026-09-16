@@ -32,7 +32,7 @@ public class ChatController {
     @PostMapping
     @Operation(summary = "RAG 问答（同步：完整回答 + Sources + 指标）")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        RagAnswerService.RagAnswer answer = chatService.answer(request.message(), request.topK());
+        RagAnswerService.RagAnswer answer = chatService.answer(request.message(), request.topK(), request.modelId());
         return new ChatResponse(answer.content(), answer.citedSourceIds(),
                 answer.sources(), answer.metrics(), answer.noContext());
     }
@@ -40,6 +40,6 @@ public class ChatController {
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "RAG 问答（SSE 流式：phase / citation / message / done / error 事件）")
     public SseEmitter stream(@Valid @RequestBody ChatRequest request) {
-        return chatService.stream(request.message(), request.topK());
+        return chatService.stream(request.message(), request.topK(), request.modelId());
     }
 }

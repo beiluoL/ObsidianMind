@@ -64,6 +64,8 @@
                 <configuration>
                     <systemPropertyVariables>
                         <ollama.it>${ollama.it}</ollama.it>
+                        <provider.it>${provider.it}</provider.it>
+                        <milvus.it>${milvus.it}</milvus.it>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

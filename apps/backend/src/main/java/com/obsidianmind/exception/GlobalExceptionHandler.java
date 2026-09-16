@@ -55,6 +55,8 @@ public class GlobalExceptionHandler {
             case "VAULT_NOT_FOUND", "NOTE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "VAULT_ACCESS_DENIED" -> HttpStatus.FORBIDDEN;
             case "INVALID_REQUEST" -> HttpStatus.BAD_REQUEST;
+            case "MODEL_NOT_FOUND", "PROVIDER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "MODEL_DISABLED", "PROVIDER_DISABLED", "PROVIDER_NOT_CONFIGURED" -> HttpStatus.CONFLICT;
             case "OLLAMA_UNAVAILABLE", "MILVUS_UNAVAILABLE", "EMBEDDING_ERROR", "VECTOR_STORE_ERROR",
                  "LLM_UNAVAILABLE" ->
                     HttpStatus.SERVICE_UNAVAILABLE;
