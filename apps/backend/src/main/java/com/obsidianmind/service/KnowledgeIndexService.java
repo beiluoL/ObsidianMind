@@ -231,25 +231,9 @@ public class KnowledgeIndexService {
 
     /** FileMeta + ParsedMarkdown + hash → Document（编排级粘合，解析细节仍在 MarkdownParser）。 */
     private Document buildDocument(String vaultId, FileMeta meta, String raw, String hash) {
-        ParsedMarkdown parsed = markdownParser.parse(raw);
-        String title = parsed.title() != null ? parsed.title()
-                : meta.name().replaceAll("(?i)\\.md$", "");
-        List<String> headings = parsed.body().lines()
-                .filter(line -> line.matches("^#{1,6}\\s+.*"))
-                .map(line -> line.replaceFirst("^#+\\s+", "").trim())
-                .toList();
-        return new Document(
-                meta.path(),
-                vaultId,
-                meta.path(),
-                title,
-                parsed.body(),
-                parsed.frontmatter(),
-                parsed.tags(),
-                headings,
-                parsed.wikiLinks(),
-                meta.modifiedAt(),
-                hash);
+        // 委托共享工厂（Phase 6 提取）：保证关键词索引与向量索引解析语义完全一致
+        return com.obsidianmind.parser.DocumentFactory.create(
+                vaultId, meta, markdownParser.parse(raw), hash);
     }
 
     /** 待写入文档（编排内部可变状态：向量与错误在阶段 2/3 填充）。 */

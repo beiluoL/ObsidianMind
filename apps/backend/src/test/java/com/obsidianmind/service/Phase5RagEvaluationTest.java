@@ -11,6 +11,7 @@ import com.obsidianmind.modelcenter.ModelRouter;
 import com.obsidianmind.parser.FrontmatterParser;
 import com.obsidianmind.parser.MarkdownParser;
 import com.obsidianmind.parser.WikiLinkParser;
+import com.obsidianmind.retrieval.RetrievalStackForTest;
 import com.obsidianmind.repository.InMemoryVectorStore;
 import com.obsidianmind.repository.VaultRepository;
 import com.obsidianmind.service.RagAnswerService;
@@ -96,8 +97,12 @@ class Phase5RagEvaluationTest {
                 ai);
         KnowledgeIndexService.IndexResult indexed = indexService.run();
         Assumptions.assumeTrue(indexed.failed() == 0, "索引存在失败，无法评估: " + indexed.errors());
-        retrievalService = new RetrievalService(vaultRepository, new OllamaEmbeddingService(ai),
-                vectorStore, new MilvusProperties("localhost", 19530, 2, COLLECTION, 1024), ai);
+        retrievalService = RetrievalStackForTest.retrievalService(
+                RetrievalStackForTest.hybridRetriever(vaultRepository, new OllamaEmbeddingService(ai),
+                        vectorStore, new MilvusProperties("localhost", 19530, 2, COLLECTION, 1024), ai,
+                        new MarkdownParser(new FrontmatterParser(), new WikiLinkParser()),
+                        new Chunker(ai), RetrievalStackForTest.properties("HYBRID")),
+                ai, RetrievalStackForTest.properties("HYBRID"));
         // 空配置存储（临时目录）→ ModelRouter 走 legacy Ollama 路径，与 Phase 5 行为一致
         ModelCenterStorage storage = new ModelCenterStorage(new ModelCenterProperties(tempDir.toString()), ai);
         ModelRouter router = new ModelRouter(storage, new CredentialResolver(storage),

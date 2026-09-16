@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
             case "MODEL_NOT_FOUND", "PROVIDER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "MODEL_DISABLED", "PROVIDER_DISABLED", "PROVIDER_NOT_CONFIGURED" -> HttpStatus.CONFLICT;
             case "OLLAMA_UNAVAILABLE", "MILVUS_UNAVAILABLE", "EMBEDDING_ERROR", "VECTOR_STORE_ERROR",
-                 "LLM_UNAVAILABLE" ->
+                 "LLM_UNAVAILABLE", "RETRIEVAL_UNAVAILABLE" ->
                     HttpStatus.SERVICE_UNAVAILABLE;
             case "LLM_TIMEOUT" -> HttpStatus.GATEWAY_TIMEOUT;
             case "CONFIGURATION_ERROR", "EMBEDDING_DIMENSION_MISMATCH" -> HttpStatus.INTERNAL_SERVER_ERROR;

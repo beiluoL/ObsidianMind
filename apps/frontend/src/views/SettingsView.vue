@@ -15,7 +15,8 @@ import {
   FolderOpen,
   Loader2,
 } from 'lucide-vue-next';
-import type { AppSettings, IndexResult } from '@/types/knowledge';
+import type { AppSettings, IndexResult, RetrievalConfig } from '@/types/knowledge';
+import { hybridSearchService } from '@/services/searchService';
 import { indexService, settingsService } from '@/services/settingsService';
 import { useVaultStore } from '@/stores/vault';
 import ThemeSwitcher from '@/components/theme/ThemeSwitcher.vue';
@@ -27,6 +28,19 @@ const fsSupported = 'showDirectoryPicker' in window;
 
 /** Phase 3 知识索引：同步执行 + 结果展示（Loading / Error / Result 三态） */
 const indexRunning = ref(false);
+const retrievalConfig = ref<RetrievalConfig | null>(null);
+const retrievalConfigError = ref('');
+
+/** 展开折叠面板时才拉取（懒加载，避免设置页打开就发请求） */
+function onAdvancedToggle(e: Event): void {
+  const details = e.target as HTMLDetailsElement;
+  if (details.open && !retrievalConfig.value && !retrievalConfigError.value) {
+    hybridSearchService.getConfig()
+      .then((cfg) => { retrievalConfig.value = cfg; })
+      .catch((err) => { retrievalConfigError.value = '检索配置加载失败：' + (err as Error).message; });
+  }
+}
+
 const indexResult = ref<IndexResult | null>(null);
 const indexError = ref('');
 
@@ -240,24 +254,75 @@ onMounted(async () => {
         </p>
       </section>
 
-      <!-- 高级 -->
+      <!-- 高级（Advanced Retrieval：默认折叠，普通用户无需关心） -->
       <section v-if="active === 'advanced'" class="settings__section">
         <h2>高级</h2>
-        <div class="field">
-          <label class="field__label">检索 Top-K</label>
-          <input class="field__input" value="6" />
-        </div>
-        <div class="field">
-          <label class="field__label">相似度阈值</label>
-          <input class="field__input" value="0.70" />
-        </div>
-        <p class="settings__note">这些参数已按经验值预配置，通常无需修改。</p>
+        <details class="adv-retrieval" @toggle="onAdvancedToggle">
+          <summary class="adv-retrieval__summary">Advanced Retrieval（检索高级配置）</summary>
+          <p v-if="retrievalConfigError" class="settings__note">{{ retrievalConfigError }}</p>
+          <template v-else-if="retrievalConfig">
+            <div class="field">
+              <label class="field__label">默认检索模式</label>
+              <input class="field__input" :value="retrievalConfig.defaultMode" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">返回条数（默认 / 上限）</label>
+              <input class="field__input" :value="retrievalConfig.defaultTopK + ' / ' + retrievalConfig.maxTopK" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">候选数（语义 / 关键词）</label>
+              <input class="field__input" :value="retrievalConfig.vectorCandidates + ' / ' + retrievalConfig.keywordCandidates" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">RRF K（融合平滑常数）</label>
+              <input class="field__input" :value="String(retrievalConfig.rrfK)" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">同文档多样性上限</label>
+              <input class="field__input" :value="String(retrievalConfig.maxPerDocument)" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">相似度阈值（0 = 关闭）</label>
+              <input class="field__input" :value="String(retrievalConfig.scoreThreshold)" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">Reranker</label>
+              <input class="field__input" :value="retrievalConfig.rerankerEnabled ? '已启用（Top ' + retrievalConfig.rerankerTopN + '）' : '未启用'" readonly />
+            </div>
+            <div class="field">
+              <label class="field__label">Retrieval Debug 端点</label>
+              <input class="field__input" :value="retrievalConfig.debugEnabled ? '已开启' : '关闭'" readonly />
+            </div>
+            <p class="settings__note">
+              以上为服务端配置（环境变量 retrieval.*），此处只读展示；修改请参考 docs/architecture/hybrid-retrieval.md。
+            </p>
+          </template>
+        </details>
       </section>
     </div>
   </div>
 </template>
 
 <style scoped>
+.adv-retrieval__summary {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  user-select: none;
+}
+
+.adv-retrieval__summary:hover {
+  color: var(--text-1);
+}
+
+.adv-retrieval[open] > .adv-retrieval__summary {
+  margin-bottom: var(--sp-3);
+}
 .settings {
   display: flex;
   height: 100%;

@@ -194,3 +194,61 @@ export interface SemanticSearchResponse {
   sources: SemanticSource[];
   elapsedMs: number;
 }
+
+/** Phase 6 检索模式（后端 RetrievalMode 枚举；UI 显示为 混合/语义/关键词） */
+export type RetrievalMode = 'VECTOR' | 'KEYWORD' | 'HYBRID';
+
+/** Phase 6 混合检索响应（POST /api/v1/search；Source 形状与语义检索兼容） */
+export interface HybridSearchResponse {
+  query: string;
+  requestedMode: RetrievalMode;
+  effectiveMode: RetrievalMode;
+  /** 降级记录（空数组 = 无降级），如 VECTOR_FALLBACK_TO_KEYWORD */
+  fallbacks: string[];
+  /** Reranker 状态：APPLIED / NOT_CONFIGURED / SKIPPED_EMPTY */
+  rerankerStatus: string;
+  elapsedMs: number;
+  sources: SemanticSource[];
+}
+
+/** 检索配置（GET /api/v1/search/config，只读，Advanced Retrieval 面板数据源） */
+export interface RetrievalConfig {
+  defaultMode: string;
+  defaultTopK: number;
+  maxTopK: number;
+  vectorCandidates: number;
+  keywordCandidates: number;
+  rrfK: number;
+  maxPerDocument: number;
+  scoreThreshold: number;
+  rerankerEnabled: boolean;
+  rerankerTopN: number;
+  debugEnabled: boolean;
+}
+
+/** Debug trace 里的单条候选（null = 该分数通道未产出） */
+export interface RetrievalTraceItem {
+  rank: number;
+  chunkId: string;
+  documentId: string;
+  title: string;
+  heading: string;
+  vectorScore: number | null;
+  keywordScore: number | null;
+  rrfScore: number | null;
+  rerankScore: number | null;
+  finalScore: number | null;
+}
+
+/** Phase 6 Retrieval Debug 响应（POST /api/v1/search/debug，仅开发模式） */
+export interface RetrievalDebugTrace {
+  requestedMode: string;
+  effectiveMode: string;
+  fallbacks: string[];
+  rerankerStatus: string;
+  vector: RetrievalTraceItem[];
+  keyword: RetrievalTraceItem[];
+  fused: RetrievalTraceItem[];
+  finalResults: RetrievalTraceItem[];
+  timing: { vectorMs: number; keywordMs: number; fusionMs: number; rerankerMs: number; totalMs: number };
+}

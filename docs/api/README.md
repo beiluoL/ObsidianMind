@@ -17,7 +17,10 @@
 | GET | `/api/v1/notes/{*id}` | 读取笔记（id = Vault 相对路径） |
 | PUT | `/api/v1/notes/{*id}` | 保存笔记（防路径穿越） |
 | GET | `/api/v1/search?q=` | 全文搜索 |
+| POST | `/api/v1/search` | **混合检索（Phase 6）**：请求 `{query, mode?, topK?}`（mode=VECTOR/KEYWORD/HYBRID，默认服务端配置），返回 `{query, requestedMode, effectiveMode, fallbacks[], rerankerStatus, elapsedMs, sources[同语义检索]}`；失败自动降级（fallbacks 可观察），两路全败 503 `RETRIEVAL_UNAVAILABLE` |
 | POST | `/api/v1/search/semantic` | **语义检索**（Query→Embedding→向量检索→Sources），请求 `{query, topK?}`，返回 `{query, sources[{title,path,heading,snippet,score,documentId,chunkIndex}], elapsedMs}` |
+| GET | `/api/v1/search/config` | 检索配置（只读）：默认模式 / TopK / 候选数 / RRF K / Reranker 状态 / Debug 门禁 |
+| POST | `/api/v1/search/debug` | Retrieval Debug 全链路 trace（仅 `RETRIEVAL_DEBUG_ENABLED=true`，否则 400） |
 | POST | `/api/v1/index/run` | **同步**执行增量索引（扫描→解析→切块→Embedding→Milvus），返回 `{total,indexed,updated,skipped,deleted,failed,chunkCount,elapsedMs,errors}` |
 | POST | `/api/v1/index` | 触发索引任务（Phase 1 兼容，异步，配 GET /status 轮询） |
 | POST | `/api/v1/chat` | **RAG 问答（同步）**：完整回答 + Sources + 指标，请求 `{message, topK?}`，返回 `{content, citedSourceIds, sources[{index,sourceId,title,path,heading,snippet,score}], metrics, noContext}` |

@@ -1,4 +1,13 @@
-import type { KnowledgeGraphData, SearchResult, SemanticSearchResponse, ServiceHealth } from '@/types/knowledge';
+import type {
+  HybridSearchResponse,
+  KnowledgeGraphData,
+  RetrievalConfig,
+  RetrievalDebugTrace,
+  RetrievalMode,
+  SearchResult,
+  SemanticSearchResponse,
+  ServiceHealth,
+} from '@/types/knowledge';
 import { apiFetch } from './api';
 import { knowledgeService } from './knowledgeService';
 
@@ -158,6 +167,31 @@ export const searchService = {
       connectionCount: 18492,
       lastIndexedAt: '2 分钟前',
     };
+  },
+};
+
+/** Phase 6 混合检索服务（POST /api/v1/search；mode 不传 = 服务端默认 HYBRID） */
+export const hybridSearchService = {
+  async search(query: string, mode?: RetrievalMode, topK?: number): Promise<HybridSearchResponse> {
+    return apiFetch<HybridSearchResponse>('/api/v1/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, mode, topK }),
+    });
+  },
+
+  /** 检索配置（只读）：Advanced Retrieval / Debug 面板数据源 */
+  async getConfig(): Promise<RetrievalConfig> {
+    return apiFetch<RetrievalConfig>('/api/v1/search/config');
+  },
+
+  /** Retrieval Debug（后端默认关闭，调用失败即未启用） */
+  async debug(query: string, mode: RetrievalMode, topK?: number): Promise<RetrievalDebugTrace> {
+    return apiFetch<RetrievalDebugTrace>('/api/v1/search/debug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, mode, topK }),
+    });
   },
 };
 

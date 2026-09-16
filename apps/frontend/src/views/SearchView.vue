@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { Search, Loader2, FileText, Sparkles } from 'lucide-vue-next';
 import type { SearchResult, SemanticSource } from '@/types/knowledge';
-import { searchService, semanticSearchService } from '@/services/searchService';
+import { hybridSearchService, searchService, semanticSearchService } from '@/services/searchService';
 import { useKnowledgeStore } from '@/stores/knowledge';
 import { useRouter } from 'vue-router';
+import type { HybridSearchResponse, RetrievalDebugTrace } from '@/types/knowledge';
 
 const route = useRoute();
 const router = useRouter();
@@ -13,8 +14,15 @@ const knowledge = useKnowledgeStore();
 
 const query = ref('');
 const scope = ref('vault');
-/** 检索模式：text = 本地全文；semantic = 向量语义检索（POST /api/v1/search/semantic） */
-const mode = ref<'text' | 'semantic'>('text');
+/** 检索模式：hybrid = 混合（默认）；semantic = 语义；text = 本地全文 */
+const mode = ref<'hybrid' | 'semantic' | 'text'>('hybrid');
+/** 混合检索响应（模式可观察字段：降级提示用） */
+const hybridResp = ref<HybridSearchResponse | null>(null);
+/** Retrieval Debug（仅 import.meta.env.DEV 显示入口；后端未启用时 debugTraceError 提示） */
+const showDebug = ref(false);
+const debugTrace = ref<RetrievalDebugTrace | null>(null);
+const debugTraceError = ref('');
+const isDev = import.meta.env.DEV;
 const results = ref<SearchResult[]>([]);
 const sources = ref<SemanticSource[]>([]);
 const loading = ref(false);
@@ -47,8 +55,19 @@ async function doSearch(): Promise<void> {
   }
   loading.value = true;
   errorMsg.value = '';
+  hybridResp.value = null;
+  debugTrace.value = null;
+  debugTraceError.value = '';
   try {
-    if (mode.value === 'semantic') {
+    if (mode.value === 'hybrid') {
+      const resp = await hybridSearchService.search(q, 'HYBRID');
+      hybridResp.value = resp;
+      sources.value = resp.sources;
+      results.value = [];
+      if (showDebug.value && isDev) {
+        void loadDebugTrace(q);
+      }
+    } else if (mode.value === 'semantic') {
       // 后端已完成排序/去重/摘要；错误不裸抛给用户，转为界面可读文案（详情进 console）
       const resp = await semanticSearchService.search(q);
       sources.value = resp.sources;
@@ -66,6 +85,53 @@ async function doSearch(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+/** 模式 → 用户可读标签（不暴露 RRF/BM25 等技术名） */
+function modeLabel(mode: string): string {
+  switch (mode) {
+    case 'HYBRID': return '混合';
+    case 'VECTOR': return '语义';
+    case 'KEYWORD': return '关键词';
+    default: return mode;
+  }
+}
+
+/** 拉取 Debug trace：后端未启用（RETRIEVAL_DEBUG_ENABLED=false）时展示可读提示而非裸错误 */
+async function loadDebugTrace(q: string): Promise<void> {
+  debugTraceError.value = '';
+  try {
+    debugTrace.value = await hybridSearchService.debug(q, 'HYBRID');
+  } catch (e) {
+    debugTrace.value = null;
+    debugTraceError.value = 'Debug 未启用（后端需设置 RETRIEVAL_DEBUG_ENABLED=true）';
+    console.debug('[search] debug trace 不可用', e);
+  }
+}
+
+function toggleDebug(): void {
+  showDebug.value = !showDebug.value;
+  if (showDebug.value && !debugTrace.value && !debugTraceError.value && query.value.trim()) {
+    void loadDebugTrace(query.value.trim());
+  }
+}
+
+/** Debug 面板展示的阶段（Vector / Keyword / RRF / Final） */
+const debugStages = computed(() => {
+  if (!debugTrace.value) {
+    return [];
+  }
+  return [
+    { key: 'vector', label: 'Vector Top', items: debugTrace.value.vector },
+    { key: 'keyword', label: 'Keyword Top (BM25)', items: debugTrace.value.keyword },
+    { key: 'fused', label: 'RRF Fused', items: debugTrace.value.fused },
+    { key: 'final', label: 'Final', items: debugTrace.value.finalResults },
+  ];
+});
+
+/** 分数格式化：null = 该通道未产出 */
+function fmtScore(value: number | null): string {
+  return value == null ? '-' : value.toFixed(4);
 }
 
 function openNote(noteId: string): void {
@@ -127,13 +193,14 @@ onMounted(() => {
           <span class="search__scope-divider" aria-hidden="true"></span>
           <button
             v-for="m in [
-              { v: 'text', label: '全文' },
+              { v: 'hybrid', label: '混合' },
               { v: 'semantic', label: '语义' },
+              { v: 'text', label: '全文' },
             ]"
             :key="m.v"
             class="search__scope"
             :class="{ 'search__scope--active': mode === m.v }"
-            @click="mode = m.v as 'text' | 'semantic'"
+            @click="mode = m.v as 'hybrid' | 'semantic' | 'text'"
           >
             {{ m.label }}
           </button>
@@ -143,15 +210,21 @@ onMounted(() => {
       <!-- 结果区：全文模式 -->
       <section v-if="loading" class="search__loading">
         <Loader2 :size="18" class="spin" />
-        <span>{{ mode === 'semantic' ? '正在向量化查询并检索知识库…' : '正在检索知识库…' }}</span>
+        <span>{{ mode === 'text' ? '正在检索知识库…' : mode === 'semantic' ? '正在向量化查询并检索知识库…' : '正在混合检索知识库（语义 + 关键词）…' }}</span>
       </section>
 
       <section v-else-if="errorMsg" class="search__empty">
         <div class="search__empty-title">{{ errorMsg }}</div>
       </section>
 
-      <template v-else-if="mode === 'semantic' && sources.length">
-        <div class="search__best section-label">语义匹配 Sources</div>
+      <template v-else-if="(mode === 'semantic' || mode === 'hybrid') && sources.length">
+        <div class="search__best section-label">
+          {{ mode === 'hybrid' ? '混合检索 Sources' : '语义匹配 Sources' }}
+          <span v-if="hybridResp" class="search__mode-chip">{{ modeLabel(hybridResp.effectiveMode) }}</span>
+        </div>
+        <p v-if="hybridResp && hybridResp.fallbacks.length" class="search__degraded">
+          部分检索通道暂不可用，本次结果来自{{ modeLabel(hybridResp.effectiveMode) }}。
+        </p>
         <button
           v-for="(s, index) in sources"
           :key="s.documentId + '#c' + s.chunkIndex"
@@ -209,6 +282,38 @@ onMounted(() => {
           <li>扩大搜索范围</li>
           <li>让 AI 帮你重新搜索</li>
         </ul>
+      </section>
+
+      <!-- Retrieval Debug：仅开发模式显示入口，普通用户不可见 -->
+      <section v-if="isDev && mode === 'hybrid' && searched && !loading" class="search__debug">
+        <button class="search__debug-toggle" @click="toggleDebug">
+          {{ showDebug ? '收起 Retrieval Debug' : 'Retrieval Debug（开发模式）' }}
+        </button>
+        <div v-if="showDebug" class="search__debug-panel">
+          <p v-if="debugTraceError" class="search__debug-hint">{{ debugTraceError }}</p>
+          <template v-else-if="debugTrace">
+            <div class="search__debug-meta">
+              requested={{ debugTrace.requestedMode }} effective={{ debugTrace.effectiveMode }}
+              reranker={{ debugTrace.rerankerStatus }}
+              fallbacks={{ debugTrace.fallbacks.length ? debugTrace.fallbacks.join(', ') : '无' }}
+              vectorMs={{ debugTrace.timing.vectorMs }} keywordMs={{ debugTrace.timing.keywordMs }}
+              fusionMs={{ debugTrace.timing.fusionMs }} rerankerMs={{ debugTrace.timing.rerankerMs }}
+              totalMs={{ debugTrace.timing.totalMs }}
+            </div>
+            <div v-for="stage in debugStages" :key="stage.key" class="search__debug-stage">
+              <div class="search__debug-stage-title">{{ stage.label }}</div>
+              <div v-for="item in stage.items" :key="item.rank + item.chunkId" class="search__debug-row">
+                <span class="search__debug-rank">{{ item.rank }}</span>
+                <span class="search__debug-doc">{{ item.title }}</span>
+                <span class="search__debug-score">
+                  v={{ fmtScore(item.vectorScore) }} k={{ fmtScore(item.keywordScore) }}
+                  rrf={{ fmtScore(item.rrfScore) }} re={{ fmtScore(item.rerankScore) }}
+                  final={{ fmtScore(item.finalScore) }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </div>
       </section>
     </div>
   </div>
@@ -480,6 +585,97 @@ onMounted(() => {
   font-size: var(--fs-sm);
   color: var(--text-2);
   line-height: 1.9;
+}
+
+.search__mode-chip {
+  margin-left: var(--sp-2);
+  padding: 1px 8px;
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+}
+
+.search__degraded {
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+}
+
+.search__debug {
+  margin-top: var(--sp-6);
+  text-align: left;
+}
+
+.search__debug-toggle {
+  padding: 3px var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-full);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.search__debug-toggle:hover {
+  color: var(--text-1);
+}
+
+.search__debug-panel {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.search__debug-hint {
+  color: var(--text-3);
+}
+
+.search__debug-meta {
+  color: var(--text-3);
+  word-break: break-all;
+  line-height: 1.8;
+}
+
+.search__debug-stage {
+  margin-top: var(--sp-3);
+}
+
+.search__debug-stage-title {
+  font-weight: 650;
+  color: var(--primary);
+  margin-bottom: var(--sp-1);
+}
+
+.search__debug-row {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 1px 0;
+  color: var(--text-2);
+}
+
+.search__debug-rank {
+  width: 18px;
+  text-align: right;
+  color: var(--text-3);
+}
+
+.search__debug-doc {
+  min-width: 120px;
+  color: var(--text-1);
+}
+
+.search__debug-score {
+  color: var(--text-3);
 }
 
 .spin {

@@ -57,6 +57,29 @@ ai:
     # SSE 整体生命周期超时（秒）
     stream-timeout-seconds: ${AI_RAG_STREAM_TIMEOUT_SECONDS:180}
 
+# 混合检索（Phase 6）：模式 / RRF / Reranker / Debug。与 ai.retrieval.*（既有语义检索参数）互补，不重复配置 top-k。
+# 默认值依据：rrf.k=60（Cormack et al. 2009）；keyword.k1=1.5/b=0.75（Okapi BM25 经典参数）。
+retrieval:
+  default-mode: ${RETRIEVAL_DEFAULT_MODE:HYBRID}
+  # Retrieval Debug 端点门禁（开发排查用，生产保持关闭）
+  debug-enabled: ${RETRIEVAL_DEBUG_ENABLED:false}
+  rrf:
+    k: ${RETRIEVAL_RRF_K:60}
+  candidates:
+    # RRF 前两路各自取回的候选数（Vector Top20 + Keyword Top20 → RRF Top20 → Rerank → Final TopK）
+    vector: ${RETRIEVAL_VECTOR_CANDIDATES:20}
+    keyword: ${RETRIEVAL_KEYWORD_CANDIDATES:20}
+  keyword:
+    # BM25（Okapi）参数
+    k1: ${RETRIEVAL_KEYWORD_K1:1.5}
+    b: ${RETRIEVAL_KEYWORD_B:0.75}
+  reranker:
+    # 本地无神经 Reranker 模型：默认关闭（NOT_CONFIGURED，结果沿用 RRF 排序，绝不假装已接入）
+    enabled: ${RETRIEVAL_RERANKER_ENABLED:false}
+    provider: ${RETRIEVAL_RERANKER_PROVIDER:lexical}
+    model: ${RETRIEVAL_RERANKER_MODEL:}
+    top-n: ${RETRIEVAL_RERANKER_TOP_N:20}
+
 milvus:
   host: ${MILVUS_HOST:localhost}
   port: ${MILVUS_PORT:19530}

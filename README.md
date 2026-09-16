@@ -94,6 +94,12 @@ docker compose up -d ollama
 | `AI_RAG_TEMPERATURE` / `AI_RAG_MAX_TOKENS` | 0.1 / 1024 | RAG 生成温度（贴资料取低值）/ 输出 token 上限 |
 | `AI_RAG_THINK` | false | thinking 模型是否先推理再作答（关闭防 token 预算被推理耗尽） |
 | `AI_RAG_LLM_TIMEOUT_SECONDS` / `AI_RAG_STREAM_TIMEOUT_SECONDS` | 120 / 180 | LLM 流式读超时 / SSE 整体生命周期超时 |
+| `RETRIEVAL_DEFAULT_MODE` | HYBRID | 混合检索默认模式（VECTOR / KEYWORD / HYBRID，Phase 6） |
+| `RETRIEVAL_RRF_K` | 60 | RRF 融合平滑常数（Cormack 2009 经典取值） |
+| `RETRIEVAL_VECTOR_CANDIDATES` / `RETRIEVAL_KEYWORD_CANDIDATES` | 20 / 20 | RRF 前两路各自取回的候选数 |
+| `RETRIEVAL_KEYWORD_K1` / `RETRIEVAL_KEYWORD_B` | 1.5 / 0.75 | BM25（Okapi）参数 |
+| `RETRIEVAL_RERANKER_ENABLED` / `RETRIEVAL_RERANKER_TOP_N` | false / 20 | Reranker 开关与重排候选数（未接神经模型，默认关） |
+| `RETRIEVAL_DEBUG_ENABLED` | false | Retrieval Debug 端点门禁（生产保持关闭） |
 | `MODEL_CENTER_STORAGE_DIR` | ~/.obsidianmind | Model Center 配置与加密凭据存储目录（Provider/Model 配置 + AES-GCM 凭据 + 独立密钥） |
 | `CORS_ALLOWED_ORIGINS` | 本地前端来源 | 生产必须显式收敛 |
 

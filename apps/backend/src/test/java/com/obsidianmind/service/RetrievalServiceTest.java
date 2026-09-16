@@ -3,9 +3,13 @@ package com.obsidianmind.service;
 import com.obsidianmind.config.AiProperties;
 import com.obsidianmind.config.MilvusProperties;
 import com.obsidianmind.domain.Chunk;
-import com.obsidianmind.exception.EmbeddingDimensionMismatchException;
 import com.obsidianmind.exception.InvalidRequestException;
 import com.obsidianmind.exception.OllamaUnavailableException;
+import com.obsidianmind.parser.FrontmatterParser;
+import com.obsidianmind.parser.MarkdownParser;
+import com.obsidianmind.parser.WikiLinkParser;
+import com.obsidianmind.retrieval.HybridRetriever;
+import com.obsidianmind.retrieval.RetrievalStackForTest;
 import com.obsidianmind.repository.InMemoryVectorStore;
 import com.obsidianmind.repository.VaultRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * RetrievalService 行为测试：校验、检索、空结果、阈值、Vault 隔离、去重多样性、Source 映射与 snippet。
  * Embedding 用确定性桩（文本关键词 → 单位向量），向量库用内存实现，Vault 用 @TempDir。
+ * 默认模式设为 VECTOR：本类验证向量语义（阈值/隔离/多样性）；混合模式行为见 HybridRetrieverTest。
  */
 class RetrievalServiceTest {
 
@@ -48,8 +53,16 @@ class RetrievalServiceTest {
     }
 
     private RetrievalService service(EmbeddingService embedding) {
-        return new RetrievalService(vaultRepository, embedding, vectorStore,
-                new MilvusProperties("localhost", 19530, 2, COLLECTION, DIM), ai);
+        return newService(embedding, vectorStore);
+    }
+
+    /** 按生产相同方式装配混合检索栈（默认 VECTOR，保持本类向量语义断言不变）。 */
+    private RetrievalService newService(EmbeddingService embedding, InMemoryVectorStore store) {
+        MarkdownParser parser = new MarkdownParser(new FrontmatterParser(), new WikiLinkParser());
+        HybridRetriever hybrid = RetrievalStackForTest.hybridRetriever(vaultRepository, embedding, store,
+                new MilvusProperties("localhost", 19530, 2, COLLECTION, DIM), ai, parser,
+                new Chunker(ai), RetrievalStackForTest.properties("VECTOR"));
+        return RetrievalStackForTest.retrievalService(hybrid, ai, RetrievalStackForTest.properties("VECTOR"));
     }
 
     private AiProperties.Retrieval cfg(int topK, int maxTopK, double threshold, int maxPerDoc, int snippetLen) {
@@ -151,8 +164,7 @@ class RetrievalServiceTest {
     private RetrievalService newRetrievalServiceWithEmptyStore() {
         InMemoryVectorStore emptyStore = new InMemoryVectorStore();
         emptyStore.ensureCollection(COLLECTION, DIM);
-        return new RetrievalService(vaultRepository, stubEmbedding(), emptyStore,
-                new MilvusProperties("localhost", 19530, 2, COLLECTION, DIM), ai);
+        return newService(stubEmbedding(), emptyStore);
     }
 
     @Test
@@ -239,7 +251,7 @@ class RetrievalServiceTest {
     }
 
     @Test
-    void embeddingFailurePropagatesAsUnavailable() {
+    void embeddingFailureDegradesToKeywordAndIsObservable() {
         ai = new AiProperties("ollama", null, null, null, cfg(5, 20, 0, 2, 200), null);
         EmbeddingService failing = new EmbeddingService() {
             @Override
@@ -262,12 +274,17 @@ class RetrievalServiceTest {
                 throw new OllamaUnavailableException("Ollama down");
             }
         };
-        assertThatThrownBy(() -> service(failing).retrieve("alpha 查询", null))
-                .isInstanceOf(OllamaUnavailableException.class);
+        // Phase 6 语义：向量失败 → 降级关键词（可观察），空 Vault 无关键词结果 → 空列表
+        RetrievalService.HybridRetrievalResult result =
+                service(failing).retrieveHybrid("alpha 查询", null, null);
+        assertThat(result.results()).isEmpty();
+        assertThat(result.effectiveMode()).isEqualTo(com.obsidianmind.retrieval.RetrievalMode.KEYWORD);
+        assertThat(result.fallbacks())
+                .containsExactly(com.obsidianmind.retrieval.HybridRetriever.FALLBACK_VECTOR_TO_KEYWORD);
     }
 
     @Test
-    void dimensionMismatchIsReportedNotSwallowed() {
+    void dimensionMismatchDegradesWithObservableFallback() {
         ai = new AiProperties("ollama", null, null, null, cfg(5, 20, 0, 2, 200), null);
         EmbeddingService wrongDim = new EmbeddingService() {
             @Override
@@ -290,8 +307,10 @@ class RetrievalServiceTest {
                 return texts.stream().map(t -> new float[]{1, 0}).toList();
             }
         };
-        assertThatThrownBy(() -> service(wrongDim).retrieve("alpha 查询", null))
-                .isInstanceOf(EmbeddingDimensionMismatchException.class)
-                .hasMessageContaining("维度");
+        // 维度不符属于向量路失败：降级关键词并记录原因，不静默吞掉
+        RetrievalService.HybridRetrievalResult result =
+                service(wrongDim).retrieveHybrid("alpha 查询", null, null);
+        assertThat(result.fallbacks())
+                .containsExactly(com.obsidianmind.retrieval.HybridRetriever.FALLBACK_VECTOR_TO_KEYWORD);
     }
 }
